@@ -1,6 +1,12 @@
-def initialise_indexes(self, annot_format='gff3'):
+from Proteogenome3 import pg_data_processing as pg_dp
+from Proteogenome3 import pg_input
+
+import numpy as np
+import re
+
+def initialise_indexes(prot_annots_path, input_table, annot_format='gff3'):
     """
-    Version: 1.0
+    Version: 1.1
 
     Name History: initialise_indexes
 
@@ -16,16 +22,22 @@ def initialise_indexes(self, annot_format='gff3'):
            INDEXES INITIALISATION
            **********************
            """)
-    self.CDS_annot_matrix(self.annot_lst)
-    self.protein_CDS_index(self.CDS_matrix)
 
-    try:
-        self.protein_peptide_index(self.input_table)
-        self.peptide_protein_index(self.input_table)
-    except:
-        print('Proteomics data not found')
+    genome_annot_lst = pg_input.file_to_lst(prot_annots_path)                             # Upload the genome annotation file into a list
+    CDS_matrix = pg_dp.CDS_annot_matrix(genome_annot_lst)                                 # Matrix with CDS annotations info only
+    prot_CDS_index = gen_protein_CDS_index(CDS_matrix, annot_format=annot_format)         # Dictionary of proteins and their group of CDS
+    prot_pep_index = protein_peptide_index(input_table, )
+    pep_prot_index = peptide_protein_index(input_table)
 
-def protein_peptide_index(self, pep_input_table):
+    # try:
+    #     prot_pep_index = protein_peptide_index(input_table)
+    #     pep_prot_index = peptide_protein_index(input_table)
+    # except:
+    #     print('Proteomics data not found')
+
+    return CDS_matrix, prot_CDS_index, prot_pep_index, pep_prot_index
+
+def protein_peptide_index(pep_input_table):
     """
     Version: 1.0
 
@@ -35,21 +47,22 @@ def protein_peptide_index(self, pep_input_table):
 
     INPUT : pep_input_table         np.array
 
-    OUTPUT: self.prot_pep_index     [Dict]  The protein index with the CDS coordinates.
+    OUTPUT: prot_pep_index     [Dict]  The protein index with the CDS coordinates.
                                         (Key)   [Str]               Protein ID
                                         (Value) [List][List][Str]   peptides =
                                                                     pepsequence, intensisty
     """
-
+    prot_pep_index = {}  # Initialise dictionary for protein ---> peptide index
     prot_ID_array = np.unique(pep_input_table[:, 0])  # Extract the protein IDs
     print('Protein ID array\n----------------\n', prot_ID_array)
     print('\n-------------------------\nGROUP PEPTIDES BY PROTEIN\n')
 
     for protein in prot_ID_array:
-        peptides_block = self.groupby_protein(pep_input_table,
+        peptides_block = pg_dp.groupby_protein(pep_input_table,
                                               protein)  # Group the peptides that belong to the current protein.
-        self.prot_pep_index[protein] = peptides_block
+        prot_pep_index[protein] = peptides_block
         print(protein, '--\n', peptides_block)
+    return prot_pep_index
 
 
 def peptide_protein_index(pep_input_table):
@@ -62,27 +75,29 @@ def peptide_protein_index(pep_input_table):
 
         INPUT : pep_input_table         np.array
 
-        OUTPUT: self.pep_prot_index     [Dict]  The peptide sequence.
+        OUTPUT: pep_prot_index     [Dict]  The peptide sequence.
                                                 (Key)   [Str]       peptide sequence
                                                 (Value) [List][Str] Protein IDs where the peptide come from.
 
         """
+        pep_prot_index = {}  # Initialise dictionary for peptide ---> protein index
         peptide_seq_array = np.unique(pep_input_table[:, 1])  # Extract the protein IDs
         print('\nUnique peptide sequences array\n-----------------------\n', peptide_seq_array)
         print('\nNumber of unique peptide sequences - ', len(peptide_seq_array),
               '\n----------------------------------------\n')
 
         for peptide in peptide_seq_array:
-            protein_block = self.groupby_peptide(pep_input_table,
+            protein_block = pg_dp.groupby_peptide(pep_input_table,
                                                  peptide)  # Group the peptides that belong to the current protein.
-            self.pep_prot_index[peptide] = protein_block
+            pep_prot_index[peptide] = protein_block
+        return pep_prot_index
 
 
-def protein_CDS_index(annotations, annot_format='gff3'):
+def gen_protein_CDS_index(annotations, annot_format='gff3'):
     """
     Version: 3.0
 
-    Name History: prot_index, protein_CDS_index
+    Name History: prot_index, protein_CDS_index, gen_protein_CDS_index
 
     Generate a dictionary with the protein ID ('gene' field in GFF3) as key and
     its CDS list as value.
@@ -108,7 +123,7 @@ def protein_CDS_index(annotations, annot_format='gff3'):
                                     (Value) [List][List][Str]   CDS coordinates =
                                                                 chr,start,end,strand
     """
-    # self.prot_CDS_index = {}
+    prot_CDS_index = {}
 
     # **************** Parsing annotations in GFF3 format
     if annot_format == 'gff3':  # specific patterns for the
@@ -130,6 +145,7 @@ def protein_CDS_index(annotations, annot_format='gff3'):
             coord_1 = row[4]
             coord_2 = row[3]
 
+        print(row[-1])
         protein_ID = gene_pat.match(row[-1]).group(1)  # Find the current protein identifier.
         # print(row)
         # print(protein_ID)
@@ -137,12 +153,14 @@ def protein_CDS_index(annotations, annot_format='gff3'):
 
         CDS_feat = [coord_1, coord_2, strand]
 
-        if (protein_ID in self.prot_CDS_index):
+        if (protein_ID in prot_CDS_index):
             # Append the features of the current CDS on the list of CDS that belongs to the current protein.
-            self.prot_CDS_index[protein_ID].append(CDS_feat)
+            prot_CDS_index[protein_ID].append(CDS_feat)
 
         else:
-            self.prot_CDS_index[protein_ID] = [CDS_feat]
+            prot_CDS_index[protein_ID] = [CDS_feat]
+
+    return prot_CDS_index
 
 
 def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange',
@@ -159,8 +177,8 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
     The RGB codes will be used for the creation of the protein map.
 
     INPUT :
-            self.prot_pep_index
-            self.prot_CDS_index
+            prot_pep_index
+            prot_CDS_index
     OUTPUT:
     """
     import math
@@ -241,7 +259,7 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
                                     its RGB code in RGB_vec.
                 RGB_vec     [List]  RGB codes in tuples.
         """
-        PSM_inten_values = self.prot_PSMint_index.values()
+        PSM_inten_values = prot_PSMint_index.values()
         inten_values = [int(x[1]) for x in PSM_inten_values]
         print('\nExtraction of protein intensities\n', inten_values)
 
@@ -255,9 +273,9 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
         insert_ind = 0
         print('\n')
         print('Number of proteins                             - ',
-              len(self.prot_pep_index.keys()))  # Number of proteins
+              len(prot_pep_index.keys()))  # Number of proteins
         print('Number of intensities to convert in RGB tuples - ',
-              len(self.prot_pep_index.keys()))  # Number of intensities
+              len(prot_pep_index.keys()))  # Number of intensities
         print('\n')
 
         # Print the proteins with their intensities and RGB codes sorted descending
@@ -275,7 +293,7 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
         new_max = len(RGB_scale)
         new_min = 0
 
-        for prot, PSM_intensity in self.prot_PSMint_index.items():
+        for prot, PSM_intensity in prot_PSMint_index.items():
             old_value = int(PSM_intensity[1])
 
             NewValue = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
@@ -323,20 +341,20 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
     max_intensity = 0
     min_intensity = 0
 
-    for protein, pep_array in self.prot_pep_index.items():
+    for protein, pep_array in prot_pep_index.items():
         PSM_sum = 0
         inten_sum = 0
         for pep_row in pep_array:
             PSM_sum += int(pep_row[3])
             inten_sum += int(pep_row[4])
-        self.prot_PSMint_index[protein] = [PSM_sum, inten_sum]
+        prot_PSMint_index[protein] = [PSM_sum, inten_sum]
         # intensities.append(inten_sum)
 
         if max_intensity < inten_sum: max_intensity = inten_sum
         if min_intensity > inten_sum: min_intensity = inten_sum
 
     print('Protein-Peptide Index - Protein-CDS Index')
-    print(f'               {len(self.prot_pep_index)}     -     {len(self.prot_CDS_index)}')
+    print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
 
     RGB_tup = generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
 
@@ -365,16 +383,16 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
     prot_vec, RGB_vector = exprlev_resc_RGB(RGB_tup)
     # +++++++++++++++++++++++++++++++++++++++++++ #
 
-    print(f'{len(prot_vec)} - {len(self.prot_CDS_index)}')
+    print(f'{len(prot_vec)} - {len(prot_CDS_index)}')
     # print(prot_expressions_RGB)
-    # print(self.prot_CDS_index)
+    # print(prot_CDS_index)
 
-    # Update the dictionary of self.prot_CDS_index with the RGB intensities
+    # Update the dictionary of prot_CDS_index with the RGB intensities
     print('\nUPDATING PROTEIN INDEX WITH RGB INTENSITIES\n-------------------------------------------')
     ind = 0
     for ind, prot in enumerate(prot_vec):
         RGB_tup = RGB_vector[ind]
         RGB_code = str(RGB_tup[0]) + ',' + str(RGB_tup[1]) + ',' + str(RGB_tup[2])
-        self.prot_PSMint_index[prot].append(RGB_code)  # prot_expressions_RGB[ind]
-        print(prot, '-', self.prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
+        prot_PSMint_index[prot].append(RGB_code)  # prot_expressions_RGB[ind]
+        print(prot, '-', prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
         # ind+=1
