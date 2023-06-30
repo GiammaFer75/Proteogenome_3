@@ -1,35 +1,35 @@
-def CDS_annot_matrix(annotations):
+import numpy as np
+
+def CDS_annot_matrix(annotations_in_lst):
     """
-    Version: 1.0
+    Version: 1.1
 
     Name History: annot_matrix, CDS_annot_matrix
 
     This function receives a list of annotations rows and extracts only the block of
     rows regarding the protein CDS
-    INPUT :
-    OUTPUT:
-            self.annotation_matrix
-            self.CDS_matrix
+    INPUT : annotations_in_lst  List        Contains the rows of the genome annotation file
+    OUTPUT: annotation_matrix   np.array    Matrix with the annotation splitted and fitered to return only the CDS
+                                            information.
     """
 
     first = True
-    for row in annotations:
+    for row in annotations_in_lst:
         if row[0] != '#':
 
             if first:
                 row_array = np.array(row.split('\t'), dtype=object)  # Split the current annotation rows in columns
-                self.annotation_matrix = np.array([row_array])  # increase the annotation matrix dimension
+                annotation_matrix = np.array([row_array])  # increase the annotation matrix dimension
                 first = False
             else:
                 row_array = np.array(row.split('\t'), dtype=object)
 
-                self.annotation_matrix = np.concatenate((self.annotation_matrix, [row_array]))
+                annotation_matrix = np.concatenate((annotation_matrix, [row_array]))
                 # print('*'*50)
                 # print(self.annotation_matrix)
                 # a=input()
 
-    self.CDS_matrix = self.annotation_matrix[self.annotation_matrix[:, 2] == 'CDS']  # Filter only for coding regions
-
+    return annotation_matrix[annotation_matrix[:, 2] == 'CDS']  # Filter only for coding regions
 
 
 def annot_to_df(annotations, annot_format ='gff3'):
