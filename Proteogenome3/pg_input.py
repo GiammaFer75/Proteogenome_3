@@ -1,4 +1,6 @@
-def file_to_lst(file_name, rem_last_row=False):
+# from Proteogenome3 import
+
+def file_to_lst(file_name, remove_last_row=False):
     """
     Version : 1.1
 
@@ -18,7 +20,7 @@ def file_to_lst(file_name, rem_last_row=False):
     file_in_lst=file_hand.read().splitlines()
     file_hand.close()
 
-    if (rem_last_row == True): file_in_lst = file_in_lst[:-1]  # Remove the last row
+    if (remove_last_row == True): file_in_lst = file_in_lst[:-1]  # Remove the last row
     return file_in_lst
 
 
