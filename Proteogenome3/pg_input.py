@@ -1,4 +1,5 @@
 # from Proteogenome3 import
+import numpy as np
 
 def file_to_lst(file_name, remove_last_row=False):
     """
