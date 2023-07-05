@@ -1,10 +1,11 @@
-# from Proteogenome3 import
+from Proteogenome3 import pg_data_cleaning as dc
+from Proteogenome3 import pg_utils as u
+
 import numpy as np
 
 def file_to_lst(file_name, remove_last_row=False):
     """
     Version : 1.1
-
     Name History : file2list (from Proteogenome 1.0)
 
     This function upload in a list the file rows.
@@ -28,7 +29,6 @@ def file_to_lst(file_name, remove_last_row=False):
 def load_generic_table(filename, sep='\t', PoGo=True):
     """
     Version: 2.0
-
     Name History: load_generic_table
 
     This function returns a np.array that contains data read from a formatted file.
@@ -90,7 +90,6 @@ def load_generic_table(filename, sep='\t', PoGo=True):
 def load_input_table(filename, sep='\t'):
         """
         Version: 1.0
-
         Name History: load_input_table
 
         This function upload in a np.array the PROTEOMICS DATA that must be visualised
@@ -115,7 +114,40 @@ def load_input_table(filename, sep='\t'):
         input_tab = input_tab[1:, :]  # Remove initialisation row
         return input_tab
 
+def load_protein_FASTA_seq(prot_FASTA_seq_path):
+    """
+    Version: 1.0
+    Name History: load_protein_FASTA_seq
 
+    This function generates a list containing all the rows of a FASTA file.
+    Because Proteogenome 3 is based on PoGo the function performs controls to have FASTA sequences PoGo compliant.
+    If some issues are found the function try to fix the problems. Two aspects are inspected. The presence of undesired
+    characters and the multilines FASTA sequences.In the former case the characters are removed, while in the latter
+    sequences are compacted in a unique line.
+
+    :param  prot_FASTA_seq_path     String      Path to the input FASTA file:
+    :return FASTA_out               List        List of FASTA file rows:
+    """
+    FASTA_out = file_to_lst(prot_FASTA_seq_path)  # Upload FASTA file
+    FASTA_chr_to_remove, compact_FASTA = dc.check_FASTA_format(FASTA_out)  # Find undesired characters in the FASTA
+    if FASTA_chr_to_remove:
+        print('The input FASTA format is not compliant with PoGo requirements.\nStarting cleaning FASTA')
+        # u.print_lst(FASTA_out)
+        char_to_remove = [(ch, '') for ch in FASTA_chr_to_remove]
+        FASTA_out = dc.rectify_rows(FASTA_out,
+                                        target_sub_str=char_to_remove)  # Remove undesired chars from FASTA
+        print('Undesired characters removed')
+    if compact_FASTA:
+        print('----------- BEFORE')
+        # u.print_lst(FASTA_out, limit=100)
+        FASTA_out = dc.FASTA_cpt_seq(FASTA_out)
+        print('----------- AFTER')
+        # u.print_lst(FASTA_out,limit=100)
+        # a = input()
+    else:
+        print('FASTA content is PoGo compliant')
+
+    return FASTA_out
 def PoGo_input_table(experiment_tag='exp', out_file_name=''):
     """
     Version: 1.0
