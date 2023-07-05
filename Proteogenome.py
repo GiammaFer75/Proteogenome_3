@@ -3,7 +3,7 @@
 from Proteogenome3 import pg_indexes as pg_i
 from Proteogenome3 import pg_input
 from Proteogenome3 import pg_utils as u
-from Proteogenome3 import pg_data_cleaning as dc
+
 
 from absl import app
 from absl import flags
@@ -58,24 +58,7 @@ def main(argv):
     print('\n')
     print("UPLOAD INPUT FILES".center(shutil.get_terminal_size().columns))
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
-    FASTA_seq_lst = pg_input.file_to_lst(protein_FASTA_seq_path)                # Upload FASTA file
-    FASTA_chr_to_remove, compact_FASTA = dc.check_FASTA_format(FASTA_seq_lst)   # Find undesired characters in the FASTA
-    if FASTA_chr_to_remove:
-        print('The input FASTA format is not compliant with PoGo requirements.\nStarting cleaning FASTA')
-        # u.print_lst(FASTA_seq_lst)
-        char_to_remove = [(ch, '') for ch in FASTA_chr_to_remove]
-        FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_sub_str=char_to_remove) # Remove undesired chars from FASTA
-        print('Undesired characters removed')
-    if compact_FASTA:
-        print('----------- BEFORE')
-        # u.print_lst(FASTA_seq_lst, limit=100)
-        FASTA_seq_lst = dc.FASTA_cpt_seq(FASTA_seq_lst)
-        print('----------- AFTER')
-        # u.print_lst(FASTA_seq_lst,limit=100)
-        a=input()
-    else: print('FASTA content is PoGo compliant')
-
-
+    FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)
 
 # ********************* REMAINING ROWS FROM PROTEOGENOME2
     prot_CDS_index = {}  # Initialise dictionary for protein ---> CDS index
@@ -91,6 +74,7 @@ def main(argv):
     subprocess.run(['.\PoGo.exe', 'capture_output=True'])
     subprocess.run(['dir'], shell=True)
 
+    u.print_lst(FASTA_seq_lst)
 
 
 
