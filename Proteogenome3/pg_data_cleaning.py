@@ -9,15 +9,16 @@ def FASTA_cpt_seq(list_rows):
     the sequences splitted in multiple rows by '\n'.
     The purpose is to arrange each sequence in a unique string.
 
-    INPUT : list_rows   List[Str]   List of rows of a FASTA file.
-    OUTPUT: seq_compa   List[Str]   List of rows of a FASTA file with the sequences
-                                    compacted in unique rows.
+    :param  list_rows   List[Str]   List of rows of a FASTA file.
+    :
+    :return seq_compa   List[Str]   List of rows of a FASTA file with the sequences compacted in unique rows.
+    :
     """
     seq_compa = []
     sequence_row = ''
 
     for row in list_rows:
-        if row[0] == '>':
+        if (len(row) > 0) and (row[0] == '>'):
             if sequence_row != '':  # If the sequence line is empty but there is a FASTA header than this is the first header.
                 seq_compa.append(
                     sequence_row)  # Otherwise, it is a sequence that belongs to the current header and then it can be appended.
@@ -28,29 +29,30 @@ def FASTA_cpt_seq(list_rows):
     return seq_compa
 
 
-def check_format(list_rows):
+def check_GFF3_format(list_rows):
     """
     Version: 1.0
-
-    Name History: check_format
+    Name History: check_format (from Proteogenome 2), check_GFF3_format
 
     This function controls if the first row in a datafile contains the expected data.
     The default is the GFF3 control where '##' chars represent comment lines and
     the first column in a .split() row contains the strain identifier.
 
-    INPUT :
-    OUTPUT:
+    :param
+    :
+    :return
+    :
     """
     format_control = True  # I suppose that the file has the expected format
     strain_ID = 'NA'
 
     for row in list_rows:
-        # print(row[:2])             # Find the strain ID as future refernce
-        if row[:2] != '##':  # The '##' represent comment lines in the GFF3 format
+        # print(row[:2])                # Find the strain ID as future refernce
+        if row[:2] != '##':             # The '##' represent comment lines in the GFF3 format
             strain_ID = row.split()[0]  # In a normal row the strain ID is in the first column
             break
     print(f'Row header - {strain_ID}')
-    for row in list_rows:  # Restart from the beginning of the list
+    for row in list_rows:                # Restart from the beginning of the list
 
         if row[:2] != '##':
             if row:
@@ -65,8 +67,65 @@ def check_format(list_rows):
     else:
         print('XXXXXX  WARNING - WRONG FILE FORMAT  XXXXXX')
 
-    print('++ FILE FORMAT CONTROL FINISHED ++')
+    print('++ GFF3 - FILE FORMAT CONTROL FINISHED ++')
+    return format_control
 
+def check_FASTA_format(list_rows):
+    """
+    Version 1.0
+    Name History: check_FASTA_format
+
+    This function check if a list of FASTA rows contains undesired characters.
+    If yes, then returns the list of undesired characters found.
+    Moreover, check if the sequences in the FASTA are represented in singe lines (NO MULTILINES SEQUENCES)
+
+    :param      list_rows
+    :
+    :return     unique_char_found
+                compact_flag
+    :
+    """
+    compact_flag = True
+    upper_alfa = {'A','B','C','D','E','F','G','H','I','J','K','L','M',
+                  'N','O','P','Q','R','S','T','U','V','W','X','Y','Z'}
+    compact_FASTA = False
+    fasta_header_flag = False
+    FASTA_seq_flag = False
+    FASTA_seq_lines_count = 0
+
+    unique_char_found = []                          # Unique list of undesired characters found in the input list of rows
+    undesired_chars_set = {'[', ']', '{', '}','\n'} # Undesired characters set, not compliant with PoGo
+    format_control = True                           # I suppose that the file has the expected format
+    for row in list_rows:
+        row_set = set(row)   # Make a set of the current row for further comparison
+        chars_found = []
+        chars_found = list(set(row).intersection(undesired_chars_set))           # Find undesired chars
+        if chars_found:
+            print('Undesired characters fount in the FASTA file.')
+            update_unique_char_found =[]
+            # Check if the character found are already found before
+            update_unique_char_found = set(chars_found) - set(unique_char_found)
+            # If NOT update the final list of undesired characters found
+            if update_unique_char_found: unique_char_found.extend(list(update_unique_char_found))
+
+        if not compact_flag:      # Check for NO multiline FASTA sequences
+            if (row[0] == '>') and (FASTA_seq_flag == False) and (FASTA_seq_lines_count == 0): # FASTA header condition
+                fasta_header_flag = True
+                FASTA_seq_flag = False
+                FASTA_seq_lines_count = 0
+            elif row.issubset(upper_alfa):  # This is a FASTA sequence
+                fasta_header_flag = False
+                FASTA_seq_flag = True
+                FASTA_seq_lines_count += 1
+
+            if FASTA_seq_lines_count > 1:
+                print('+++++ Multiline FASTA sequence detected. The FASTA sequences will be compacted +++++')
+                compact_flag = True
+            elif (fasta_header_flag == True) and (FASTA_seq_flag == False) and (FASTA_seq_lines_count == 0) and (row[0] == '>'):
+                print('--- WARNING --- \nApparently one FASTA header has no sequence.\nPlease check your FASTA file')
+                break
+
+    return unique_char_found, compact_flag
 
 
 def locus_tag_substitution(FASTA_lst):
@@ -107,7 +166,7 @@ def rectify_rows(list_rows, target_sub_str=[], target_patterns=[],
 
     Name History: rectify_rows
 
-    This function receives a list of rows. Therefore cleans every single row replacing the
+    This function receives a list of rows. Therefore, cleans every single row replacing the
     target substrings with the proper substitution.
     Target substrings can be substitute in two ways:
 
@@ -195,3 +254,35 @@ def rectify_rows(list_rows, target_sub_str=[], target_patterns=[],
         return list_rows
     else:
         return list_rows, rows_not_modif_lst
+
+def FASTA_cleaning(FASTA_path, out_file_path, chr_to_remove='[\[,\],{,}]', remove_original_file=False):
+    """
+    Version: 1.0
+
+    Name History: FASTA_cleaning
+
+    This function cleans the FASTA file from undesired characters.
+    In particular remove the '\n' character from the FASTA sequences. This is necessary to further sequencing process.
+
+    :param  FASTA_path
+            out_file_path
+            chr_to_remove
+    :return:
+    """
+    with open(out_file_path, 'w') as outfile:
+        for record in SeqIO.parse(FASTA_path, 'fasta'):
+            # Clean the header
+            header = record.description
+            header = re.sub(chr_to_remove, '', header)
+            record.description = header
+
+            # Clean the sequence
+            sequence = str(record.seq)
+            if '\n' in sequence:
+                sequence = sequence.replace('\n', '')
+
+            # Update the record's sequence
+            record.seq = sequence
+
+            # Write the modified record to the output file
+            SeqIO.write(record, outfile, 'fasta')
