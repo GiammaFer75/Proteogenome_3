@@ -2,7 +2,9 @@
 
 from Proteogenome3 import pg_indexes as pg_i
 from Proteogenome3 import pg_input
+from Proteogenome3 import pg_output
 from Proteogenome3 import pg_utils as u
+from Proteogenome3 import pg_data_cleaning as dc
 
 
 from absl import app
@@ -34,6 +36,7 @@ flags.DEFINE_string('peptides_table', None, 'The table containing the peptides s
                                             '- Peptide modification - PTM\n'
                                             '- Peptide PSM\n'
                                             '- Peptide intensity\n')
+flags.DEFINE_string('out_dir', None, 'The output directory')
 
 def main(argv):
 
@@ -46,9 +49,14 @@ def main(argv):
     protein_GFF3_annots_path = FLAGS.protein_GFF3_annots
     protein_GTF_annots_path = FLAGS.protein_GTF_annots
     peptides_table_path = FLAGS.peptides_table
+    output_dir_path = FLAGS.out_dir
 
+    print(pogo_windows_exe_path)
+    print(protein_FASTA_seq_path)
     print(protein_GFF3_annots_path)
     print(protein_GTF_annots_path)
+    print(peptides_table_path)
+    print(output_dir_path)
     # Set the annotation format flag
     if (protein_GFF3_annots_path != None) and (protein_GTF_annots_path == None): annotations_format = 'gff3'
     elif (protein_GTF_annots_path != None) and (protein_GFF3_annots_path == None): annotations_format = 'gtf'
@@ -58,7 +66,23 @@ def main(argv):
     print('\n')
     print("UPLOAD INPUT FILES".center(shutil.get_terminal_size().columns))
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
-    FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)
+    FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)     # Upload protein FASTA sequences
+    annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)                   # Upload reference genome annotations
+
+    # FASTA rectification
+    FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_sub_str=[('lcl|NC_006273.2_prot_', '')])
+    FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_patterns=[('gene=.*?\s', '')])
+    FASTA_seq_lst = dc.locus_tag_substitution(FASTA_seq_lst)
+
+    # GTF rectification
+    annot_lst = dc.rectify_rows(annot_lst, target_sub_str=[('gene-', ''), ('rna-', '')])
+    annot_lst = dc.rectify_rows(annot_lst, open_patterns=[('.*?gene_id\s\"(.*?)\"', '.*?locus_tag\s\"(.*?)\"')])
+
+    # SAVE cleaned files
+    protein_FASTA_seq_path = output_dir_path + 'PoGo_prot_seq.fasta'
+    pg_output.make_sep_file(protein_FASTA_seq_path, FASTA_seq_lst, sep=' ')
+    protein_GTF_annots_path = output_dir_path + 'PoGo_annot.gtf'
+    pg_output.make_sep_file(protein_GTF_annots_path, annot_lst, sep=' ')
 
 # ********************* REMAINING ROWS FROM PROTEOGENOME2
     prot_CDS_index = {}  # Initialise dictionary for protein ---> CDS index
@@ -69,12 +93,23 @@ def main(argv):
     CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
 
     #TESTING COMMANDS
-    pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, peptides_table_path)
-    chdir(pogo_dir)
-    subprocess.run(['.\PoGo.exe', 'capture_output=True'])
-    subprocess.run(['dir'], shell=True)
+    PoGo_input_table_path = output_dir_path + 'PoGo_Input_Table.txt'
+    print(f'Pogo input table file - {PoGo_input_table_path}')
+    PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
+    pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
+    chdir(pogo_windows_exe_path)
 
-    u.print_lst(FASTA_seq_lst)
+    PoGo_command =[pogo_windows_exe_path+'PoGo.exe', '-fasta', protein_FASTA_seq_path, '-gtf', protein_GTF_annots_path,
+                   '-in', PoGo_input_table_path]
+    print(f'################\n{PoGo_command}\n################')
+    # PoGo_command = '.\PoGo.exe'
+    subprocess.run(PoGo_command, capture_output=True)
+    # subprocess.run(['dir'], shell=True)
+    # subprocess.run(['.\PoGo.exe', 'capture_output=True'])
+
+
+    #u.print_lst(FASTA_seq_lst)
+    # u.print_lst(annot_lst, limit=20)
 
 
 
