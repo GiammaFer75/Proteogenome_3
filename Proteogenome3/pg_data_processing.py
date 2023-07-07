@@ -1,4 +1,5 @@
 import numpy as np
+import re
 
 def CDS_annot_matrix(annotations_in_lst):
     """
