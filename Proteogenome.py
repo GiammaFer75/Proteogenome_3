@@ -1,9 +1,10 @@
 #!usr/bin/python3
+import os
 
 from Proteogenome3 import pg_indexes as pg_i
 from Proteogenome3 import pg_input
 from Proteogenome3 import pg_output
-from Proteogenome3 import pg_utils as u
+from Proteogenome3 import pg_utils
 from Proteogenome3 import pg_data_cleaning as dc
 from Proteogenome3 import pg_data_processing as dp
 
@@ -12,7 +13,7 @@ from absl import app
 from absl import flags
 
 import subprocess
-from os import chdir
+from os import chdir, makedirs
 
 import shutil
 import pathlib
@@ -28,6 +29,7 @@ pogo_dir = 'C:/Bioinformatics/Proteogenome_v3/Test_PoGo_absl_subprocess/Proteoge
 
 FLAGS = flags.FLAGS
 
+flags.DEFINE_string('project_dir', None, 'The output directory')
 flags.DEFINE_string('pogo_windows_exe', None, 'The executable PoGo file for running the software on Windows OS.')
 flags.DEFINE_string('protein_FASTA_seq', None, 'The protein sequences related to the reference organism genome.')
 flags.DEFINE_string('protein_GFF3_annots', None, 'The protein annotations related to the reference organism genome in GFF3.')
@@ -38,7 +40,7 @@ flags.DEFINE_string('peptides_table', None, 'The table containing the peptides s
                                           '- Peptide modification - PTM\n'
                                           '- Peptide PSM\n'
                                           '- Peptide intensity\n')
-flags.DEFINE_string('out_dir', None, 'The output directory')
+
 
 def main(argv):
 
@@ -46,21 +48,31 @@ def main(argv):
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
     print("START PROTEOGENOM".center(shutil.get_terminal_size().columns))
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
-    pogo_windows_exe_path = pathlib.Path(FLAGS.pogo_windows_exe)
-    protein_FASTA_seq_path = pathlib.Path(FLAGS.protein_FASTA_seq)
-    if FLAGS.protein_GFF3_annots: protein_GFF3_annots_path = pathlib.Path(FLAGS.protein_GFF3_annots)
-    else: protein_GFF3_annots_path = None
-    if FLAGS.protein_GTF_annots: protein_GTF_annots_path = pathlib.Path(FLAGS.protein_GTF_annots)
-    else: protein_GTF_annots_path = None
-    peptides_table_path = pathlib.Path(FLAGS.peptides_table)
-    output_dir_path = pathlib.Path(FLAGS.out_dir)
 
+    if FLAGS.project_dir:
+        project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
+    else: project_dir_path = pathlib.Path.cwd()
+    pogo_windows_exe_path = pathlib.Path(FLAGS.pogo_windows_exe)            # PoGo Executable
+    protein_FASTA_seq_path = pathlib.Path(FLAGS.protein_FASTA_seq)          # FASTA protein sequences
+    if FLAGS.protein_GFF3_annots:
+        protein_GFF3_annots_path = pathlib.Path(FLAGS.protein_GFF3_annots)  # GFF3 Reference Genome Annotations
+    else: protein_GFF3_annots_path = None
+    if FLAGS.protein_GTF_annots:
+        protein_GTF_annots_path = pathlib.Path(FLAGS.protein_GTF_annots)    # GTF Reference Genome Annotations
+    else: protein_GTF_annots_path = None
+    peptides_table_path = pathlib.Path(FLAGS.peptides_table)                # Peptides Input Table
+
+    print(project_dir_path)
     print(pogo_windows_exe_path)
     print(protein_FASTA_seq_path)
     print(protein_GFF3_annots_path)
     print(protein_GTF_annots_path)
     print(peptides_table_path)
-    print(output_dir_path)
+
+
+    # GENERATE WORKING DIRECTORIES
+    project_dir_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
+
     # Set the annotation format flag
     if (protein_GFF3_annots_path != None) and (protein_GTF_annots_path == None): annotations_format = 'gff3'
     elif (protein_GTF_annots_path != None) and (protein_GFF3_annots_path == None): annotations_format = 'gtf'
@@ -69,9 +81,12 @@ def main(argv):
     # UPLOAD INPUT FILES
     print('\n')
     print("UPLOAD INPUT FILES".center(shutil.get_terminal_size().columns))
+
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
     FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)     # Upload protein FASTA sequences
     annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)                   # Upload reference genome annotations
+
+
 
     # FASTA rectification
     FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_sub_str=[('lcl|NC_006273.2_prot_', '')])
@@ -83,10 +98,14 @@ def main(argv):
     annot_lst = dc.rectify_rows(annot_lst, open_patterns=[('.*?gene_id\s\"(.*?)\"', '.*?locus_tag\s\"(.*?)\"')])
 
     # SAVE cleaned files
-    protein_FASTA_seq_path = output_dir_path.joinpath('PoGo_prot_seq.fasta')
+    protein_FASTA_seq_path = PoGo_input_path.joinpath('PoGo_prot_seq.fasta')
     pg_output.make_sep_file(protein_FASTA_seq_path, FASTA_seq_lst, sep=' ')
-    protein_GTF_annots_path = output_dir_path.joinpath('PoGo_annot.gtf')
+    protein_GTF_annots_path = PoGo_input_path.joinpath('PoGo_annot.gtf')
     pg_output.make_sep_file(protein_GTF_annots_path, annot_lst, sep=' ')
+
+    # GENERATE PoGo INPUT PEPTIDES FILE and TABLE
+    PoGo_input_table_path = PoGo_input_path.joinpath('PoGo_Input_Table.txt')
+    PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
 
 # ********************* REMAINING ROWS FROM PROTEOGENOME2
     prot_CDS_index = {}  # Initialise dictionary for protein ---> CDS index
@@ -97,25 +116,27 @@ def main(argv):
     CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
 
     # TESTING COMMANDS
-    PoGo_input_table_path = output_dir_path.joinpath('PoGo_Input_Table.txt')
-    print(f'Pogo input table file - {PoGo_input_table_path}')
-    PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
+
     pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
     chdir(pogo_windows_exe_path)
 
     PoGo_command =[pogo_windows_exe_path.joinpath('PoGo.exe'), '-fasta', protein_FASTA_seq_path, '-gtf', protein_GTF_annots_path,
                    '-in', PoGo_input_table_path]
-    print(f'################\n{PoGo_command}\n################')
+    print(f'\n################\n{PoGo_command}\n################\n')
     # PoGo_command = '.\PoGo.exe'
     subprocess.run(PoGo_command, capture_output=True)
+    pg_utils.move_files(PoGo_input_path, PoGo_output_path,filenames_patterns=['*.bed','*.gct', '*_unmapped.*'])
+
     # subprocess.run(['dir'], shell=True)
     # subprocess.run(['.\PoGo.exe', 'capture_output=True'])
 
-    # GENERATE TRAQS
-    #PoGo_peptide_map = pg_input.load_generic_table(home + 'PoGo_Input_Table.bed')
-    #dp.filter_peptides(PoGo_peptide_map, home + 'Peptide_MAP.bed')
-    #u.print_lst(FASTA_seq_lst)
-    # u.print_lst(annot_lst, limit=20)
+    # GENERATE TRACKS
+    PoGo_peptide_map_path = PoGo_output_path.joinpath('PoGo_Input_Table.bed')
+    PoGo_peptide_map = pg_input.load_generic_table(PoGo_peptide_map_path)
+    peptide_MAP_path = project_dir_path.joinpath('Peptide_MAP.bed')
+    dp.filter_peptides(PoGo_peptide_map, peptide_MAP_path)
+    #pg_utils.print_lst(FASTA_seq_lst)
+    # pg_utils.print_lst(annot_lst, limit=20)
 
 
 
