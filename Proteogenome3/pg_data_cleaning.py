@@ -1,7 +1,8 @@
+import re
+
 def FASTA_cpt_seq(list_rows):
     """
     Version: 1.0
-
     Name History: FASTA_cpt_seq
 
     This function compact the sequence after each FASTA header.
@@ -9,10 +10,8 @@ def FASTA_cpt_seq(list_rows):
     the sequences splitted in multiple rows by '\n'.
     The purpose is to arrange each sequence in a unique string.
 
-    :param  list_rows   List[Str]   List of rows of a FASTA file.
-    :
-    :return seq_compa   List[Str]   List of rows of a FASTA file with the sequences compacted in unique rows.
-    :
+    :param  list_rows   List[Str]   List of rows of a FASTA file.:
+    :return seq_compa   List[Str]   List of rows of a FASTA file with the sequences compacted in unique rows.:
     """
     seq_compa = []
     sequence_row = ''
@@ -38,10 +37,8 @@ def check_GFF3_format(list_rows):
     The default is the GFF3 control where '##' chars represent comment lines and
     the first column in a .split() row contains the strain identifier.
 
-    :param
-    :
-    :return
-    :
+    :param:
+    :return:
     """
     format_control = True  # I suppose that the file has the expected format
     strain_ID = 'NA'
@@ -79,11 +76,10 @@ def check_FASTA_format(list_rows):
     If yes, then returns the list of undesired characters found.
     Moreover, check if the sequences in the FASTA are represented in singe lines (NO MULTILINES SEQUENCES)
 
-    :param      list_rows
-    :
-    :return     unique_char_found
-                compact_flag
-    :
+    :param      list_rows        :
+
+    :return     unique_char_found:
+    :return     compact_flag     :
     """
     compact_flag = True
     upper_alfa = {'A','B','C','D','E','F','G','H','I','J','K','L','M',
@@ -131,7 +127,6 @@ def check_FASTA_format(list_rows):
 def locus_tag_substitution(FASTA_lst):
         """
         Version: 1.0
-
         Name History: locus_tag_substitution
 
         This function substitutes the tag 'locus_tag='' with 'gene:gene-' and 'transcript:rna-'
@@ -139,9 +134,8 @@ def locus_tag_substitution(FASTA_lst):
         This function is specific to the single operation of fitting the FASTA header into
         a PoGo readable format.
 
-        INPUT :     FASTA_lst       List    List of FASTA rows including also FASTA sequences.
-        OUTPUT:     FASTA_lst4PoGo  List    List of FASTA rows with the rectified headers and
-                                            the FASTA sequences.
+        :param      FASTA_lst       List    List of FASTA rows including also FASTA sequences.                    :
+        :return     FASTA_lst4PoGo  List    List of FASTA rows with the rectified headers and the FASTA sequences.:
         """
         FASTA_lst4PoGo=[]
 
@@ -186,26 +180,24 @@ def rectify_rows(list_rows, target_sub_str=[], target_patterns=[],
                                 tuple. Instead, it must be extracted by a generic pattern as well.
 
 
-    INPUT : list_rows           [List]  List of rows to clean
-            target_sub_str      [List]  List of [tuples] of two elements. Replacement through
-                                        .replace() command.
+    :param  list_rows           List    List of rows to clean:
+    :param  target_sub_str      List    List of [tuples] of two elements. Replacement through .replace() command.
                                         Tuple position reference:
                                         [0] target substring that must be substitute.
-                                        [1] replacement string used in the substitution.
-            target_patterns     [List]  List of [tuples] of two elements. Replacement through
+                                        [1] replacement string used in the substitution.                             :
+    :param  target_patterns     List    List of [tuples] of two elements. Replacement through
                                         .sub() command in a regex search.
+                                        Tuple position reference
+                                        [0] target pattern that must be substitute.
+                                        [1] replacement string used in the substitution.                             :
+    :param  open_patterns       List    List of [tuples] of two elements. Replacement through .sub() command in
+                                        a regex search.
                                         Tuple position reference:
                                         [0] target pattern that must be substitute.
-                                        [1] replacement string used in the substitution.
-            open_patterns       [List]  List of [tuples] of two elements. Replacement through
-                                        .sub() command in a regex search.
-                                        Tuple position reference:
-                                        [0] target pattern that must be substitute.
-                                        [1] replacement pattern used to find the substring
-                                            that will substitute the value of the pattern [0].
+                                        [1] replacement pattern used to find the substring that will substitute the
+                                        value of the pattern [0].                                                    :
 
-    OUTPUT: list_rows           [List]  The original list of rows cleaned from the
-                                        substrings provided as input.
+    :return list_rows           List    The original list of rows cleaned from the substrings provided as input.     :
     """
     rows_not_modif_lst = []
     rows_not_modif_flag = False
@@ -264,10 +256,10 @@ def FASTA_cleaning(FASTA_path, out_file_path, chr_to_remove='[\[,\],{,}]', remov
     This function cleans the FASTA file from undesired characters.
     In particular remove the '\n' character from the FASTA sequences. This is necessary to further sequencing process.
 
-    :param  FASTA_path
-            out_file_path
-            chr_to_remove
-    :return:
+    :param      FASTA_path     :
+    :param      out_file_path  :
+    :param      chr_to_remove  :
+    :return                    :
     """
     with open(out_file_path, 'w') as outfile:
         for record in SeqIO.parse(FASTA_path, 'fasta'):
