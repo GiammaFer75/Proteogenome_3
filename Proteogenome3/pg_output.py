@@ -1,31 +1,29 @@
 def make_sep_file(out_file_name, input_array, sep=''):
     """
     Version: 1.0
-
     Name History: make_tab_file - make_sep_file
 
-    This function creates a file from an np.array/List with separated fields.
+    This function creates a file from an input list or an np.array made of strings.
+    Each string has separated fields.
 
-    Example: [[...],
-              [...],
-                .
-              [...]]
+    The function verify the data type of the input array (list or np.array). Three cases are managed:
+    1 - List of strings
+    2 - List of lists
+    3 - np.array
 
-    The function retrieves the number of columns by looking at the number of columns stored
+    The function retrieves the number of columns looking at the number of columns stored
     in the first row of the input list/array.
     The column's content will be written into the file separated by the value of the sep variable.
 
-    INPUT : out_file_name   [Str]       The file path where the new file will be created
-            input_array     [np.array]
-                                or      Array or Listof data to write in the output file
-                              [List]
+    :param  out_file_name   String      The file path where the new file will be created
+            input_array     np.array    Array of data to write in the output file
+                            List        List of data to write in the output file
 
-
-    OUTPUT: The file with the input array content
+    :output The file with the input array content
     """
 
     out_file_hand = open(out_file_name, 'w')
-    if type(input_array) == list and type(input_array[0]) == list:  # In this case is a list of lists
+    if type(input_array) == list and type(input_array[0]) == list:  # LIST of LISTS
         number_of_columns = len(input_array[0])
         for row in input_array:
             out_row = ''
@@ -34,15 +32,15 @@ def make_sep_file(out_file_name, input_array, sep=''):
                 if (col_ind < number_of_columns): out_row += sep
             out_row += '\n'
             out_file_hand.write(out_row)
-        print('1')
+        print('1 - LIST of LISTS')
 
-    if type(input_array) == list and type(input_array[0]) == str:
-        number_of_columns = 1  # In this case is a simple list
+    if type(input_array) == list and type(input_array[0]) == str:   # LIST of STRINGS
+        number_of_columns = 1
         for row in input_array:
             out_file_hand.write(row + '\n')
-        print('2')
+        print('2 - LIST of STRINGS')
 
-    if 'numpy.ndarray' in str(type(input_array)):
+    if 'numpy.ndarray' in str(type(input_array)):                   # NUMPY np.array
         number_of_columns = input_array.shape[1]
         for row in input_array:
             out_row = ''
@@ -51,7 +49,7 @@ def make_sep_file(out_file_name, input_array, sep=''):
                 if (col_ind < number_of_columns): out_row += sep
             out_row += '\n'
             out_file_hand.write(out_row)
-        print('3')
+        print('3 - NUMPY np.array')
 
     out_file_hand.close()
 
@@ -64,7 +62,7 @@ def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
     Receive a list of protein codes and create the .bed track with the genomic locations of the protins.
     Example of multi exon protein in input:
       UL37 - [['52573', '53060', '-'], ['51302', '51344', '-'], ['50262', '51197', '-']]
-    INPUT:  self.prot_pep_index
+    :param  self.prot_pep_index
             self.prot_CDS_index
             self.prot_PSMint_index
     OUTPUT:
