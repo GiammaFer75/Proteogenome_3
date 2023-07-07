@@ -1,4 +1,6 @@
 from Proteogenome3 import pg_data_cleaning as dc
+from Proteogenome3 import pg_data_processing as dp
+from Proteogenome3 import pg_output
 from Proteogenome3 import pg_utils as u
 
 import numpy as np
@@ -125,58 +127,49 @@ def load_protein_FASTA_seq(prot_FASTA_seq_path):
     characters and the multilines FASTA sequences.In the former case the characters are removed, while in the latter
     sequences are compacted in a unique line.
 
-    :param  prot_FASTA_seq_path     String      Path to the input FASTA file:
-    :return FASTA_out               List        List of FASTA file rows:
+    :param      prot_FASTA_seq_path     String      Path to the input FASTA file :
+    :return     FASTA_out               List        List of FASTA file rows      :
     """
     FASTA_out = file_to_lst(prot_FASTA_seq_path)  # Upload FASTA file
     FASTA_chr_to_remove, compact_FASTA = dc.check_FASTA_format(FASTA_out)  # Find undesired characters in the FASTA
     if FASTA_chr_to_remove:
         print('The input FASTA format is not compliant with PoGo requirements.\nStarting cleaning FASTA')
-        # u.print_lst(FASTA_out)
         char_to_remove = [(ch, '') for ch in FASTA_chr_to_remove]
         FASTA_out = dc.rectify_rows(FASTA_out,
                                         target_sub_str=char_to_remove)  # Remove undesired chars from FASTA
         print('Undesired characters removed')
-    if compact_FASTA:
-        print('----------- BEFORE')
-        # u.print_lst(FASTA_out, limit=100)
-        FASTA_out = dc.FASTA_cpt_seq(FASTA_out)
-        print('----------- AFTER')
-        # u.print_lst(FASTA_out,limit=100)
-        # a = input()
-    else:
-        print('FASTA content is PoGo compliant')
+    if compact_FASTA: FASTA_out = dc.FASTA_cpt_seq(FASTA_out)
+    else: print('FASTA content is PoGo compliant')
 
     return FASTA_out
-def PoGo_input_table(experiment_tag='exp', out_file_name=''):
+def gen_PoGo_input_table(input_table, experiment_tag='exp', out_file_name=''):
     """
     Version: 1.0
-
-    Name History: PoGo_input_table
+    Name History: PoGo_input_table, gen_PoGo_input_table
 
     This function creates a peptide input table suitable for the PoGo software.
-    Considering the format of the input table for Proteogenome,
-    this function removes the first column of the original input table.
-    Then, insert a new column into the first position with an experiment tag
-    that will be reported on each peptide row.
+    Starting from the format of the input table for Proteogenome 3, this function removes the first column of the
+    original input table (Protein Codes).
+    Then, insert a new column into the first position with an experiment tag that will be reported on each peptide row.
 
-    INPUT : self.imput_table
-    OUTPUT:
+    :param      imput_table     np.array    The peptides table input to Proteogenome         :
+    :return     PoGo_it         np.array    The peptides table formatted for the PoGo usage  :
     """
-    self.PoGo_it = np.delete(self.input_table, 0, 1)  # Remove the protein codes column. self.input_table[:,1::]
+    PoGo_it = np.delete(input_table, 0, 1)  # Remove the protein codes column. input_table[:,1::]
 
-    PTMs = self.PoGo_it[:, 1]  # Save the PTMs type and location for each peptide in an array.
-    print(self.PoGo_it)
+    PTMs = PoGo_it[:, 1]  # Save the PTMs type and location for each peptide in an array.
+    print(PoGo_it)
     # peptides_updated=self.apply_PTMs_to_pep(peptide_tab=self.PoGo_it) # Apply the PTM to the peptide sequence #
-    self.PoGo_it = self.apply_PTMs_to_pep(peptide_tab=self.PoGo_it)
+    PoGo_it = dp.apply_PTMs_to_pep(peptide_tab=PoGo_it)
 
-    self.PoGo_it = np.delete(self.PoGo_it, 1, 1)  # Remove the PTM column
-    print(self.PoGo_it)
+    PoGo_it = np.delete(PoGo_it, 1, 1)  # Remove the PTM column
+    print(PoGo_it)
 
-    insert_experiment_name = np.full((len(self.PoGo_it), 1), experiment_tag)  # Generate the experiment tag column.
-    self.PoGo_it = np.concatenate((insert_experiment_name, self.PoGo_it),
+    insert_experiment_name = np.full((len(PoGo_it), 1), experiment_tag)  # Generate the experiment tag column.
+    PoGo_it = np.concatenate((insert_experiment_name, PoGo_it),
                                   axis=1)  # Insert the experiment tag column as a first column of the table.
 
     if out_file_name:
         print('making PoGo input table')
-        self.make_sep_file(out_file_name, self.PoGo_it, sep='\t')  # Create the file with the the PoGo input table.
+        pg_output.make_sep_file(out_file_name, PoGo_it, sep='\t')  # Create the file with the PoGo input table.
+    return PoGo_it
