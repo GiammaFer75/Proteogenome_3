@@ -22,7 +22,7 @@ def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
             if en_sep: print(sep_type * 100)
 
 
-def create_path(input_filename, add_suffix, add_prefix):
+def create_path(input_filename, add_suffix='', add_prefix=''):
     """
     Version : 1.0
     Name History : create_path
