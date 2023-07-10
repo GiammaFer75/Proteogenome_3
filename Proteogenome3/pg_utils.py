@@ -1,5 +1,6 @@
 import os
 import shutil
+import pathlib
 
 def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
     """
@@ -22,7 +23,7 @@ def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
             if en_sep: print(sep_type * 100)
 
 
-def create_path(input_filename, add_suffix='', add_prefix=''):
+def create_path(input_filename, add_prefix='', add_suffix=''):
     """
     Version : 1.0
     Name History : create_path
@@ -30,13 +31,13 @@ def create_path(input_filename, add_suffix='', add_prefix=''):
     This function take the absolute path of a file and add a prefix or a suffix to the original filename, based on the
     user input.
 
-    :param      input_filename:
-    :param      add_suffix:
-    :param      add_prefix:
-    :return     new_filename:
+    :param      input_filename  String  Absolute path to modify           :
+    :param      add_suffix      String  String to add after the filename  :
+    :param      add_prefix      String  String to add before the filename :
+    :return     new_filename    String  The original filename modified    :
     """
-    cwd = os.getcwd()
-    filename = os.path.basename(input_filename)
+    filename_parent = pathlib.PurePath(input_filename).parents[0]
+    filename = pathlib.PurePath(input_filename).name
     if add_suffix and not add_prefix:
         new_filename = filename.rsplit('.', 1)[0] + add_suffix + filename.rsplit('.', 1)[1]              # Add suffix
     elif add_prefix and not add_suffix:
@@ -46,7 +47,8 @@ def create_path(input_filename, add_suffix='', add_prefix=''):
     else:
         print('Input filename it is not modified. Please provide a prefix or suffix. ')
         new_filename = input_filename
-    new_filename = os.path.abspath(new_filename)
+    new_filename = filename_parent.joinpath('PoGo_Output', new_filename)
+    print(new_filename)
     return new_filename
 
 def gen_dir_structure(proj_dir_path):
@@ -64,13 +66,24 @@ def gen_dir_structure(proj_dir_path):
     os.chdir(proj_dir_path)
     proj_dir_path = proj_dir_path.joinpath('Proteogenome_Project')
     os.mkdir(proj_dir_path)  # Create the Proteogenome_Project folder
+    proteogenome_output_path = proj_dir_path.joinpath('Proteogenome_Output')
+    os.mkdir(proteogenome_output_path)
+    print(proteogenome_output_path)
+
     pogo_input_path = proj_dir_path.joinpath('PoGo_Input')
     os.mkdir(pogo_input_path)
     pogo_output_path = proj_dir_path.joinpath('PoGo_Output')
     os.mkdir(pogo_output_path)
-    return proj_dir_path, pogo_input_path, pogo_output_path
+    return proj_dir_path, proteogenome_output_path, pogo_input_path, pogo_output_path
 
 def move_files(origin_dir, destination_dir, filenames_patterns=[]):
+    """
+
+    :param origin_dir:
+    :param destination_dir:
+    :param filenames_patterns:
+    :return:
+    """
     print(f'Moving these files from {origin_dir} to {origin_dir}\nFile list:\n')
     for file_name_pattern in filenames_patterns:
         for origin_abs_file_name in origin_dir.glob(file_name_pattern):
