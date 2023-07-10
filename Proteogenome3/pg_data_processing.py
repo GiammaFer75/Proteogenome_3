@@ -1,10 +1,12 @@
+from Proteogenome3 import pg_output
+from Proteogenome3 import pg_utils
+
 import numpy as np
 import re
 
 def CDS_annot_matrix(annotations_in_lst):
     """
     Version: 1.1
-
     Name History: annot_matrix, CDS_annot_matrix
 
     This function receives a list of annotations rows and extracts only the block of
@@ -36,7 +38,6 @@ def CDS_annot_matrix(annotations_in_lst):
 def annot_to_df(annotations, annot_format ='gff3'):
     """
     Version: 1.0
-
     Name History: annot_to_df
 
     This function extracts relevant data from the annotation file and put them in a DataFrame
@@ -110,7 +111,6 @@ def annot_to_df(annotations, annot_format ='gff3'):
 def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     """
     Version: 2.0
-
     Name History: apply_PTMs_to_pep
 
     This function updates the peptide sequences with the PTMs encoding (see PoGo software instructions).
@@ -126,7 +126,6 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     def PTMs_type_set(modifications, PTMs_remove):
         """
         Version: 2.0
-
         Name History: PTMs_type_set
         """
 
@@ -199,25 +198,27 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
 
 
 
-def filter_peptides(PoGo_peptides, out_file_name=''):
+def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name=''):
     """
-    Version: 1.2
-
+    Version: 2.0
     Name History: filter_peptides
 
     This function  filter the peptides mapped by PoGo.
     The filter criteria is based on the proteins identified in the proteomics data
-    provided to the software.
+    provided to Proteogenome.
     The peptides coordinates are compared with the CDS coordinates.
     If the peptide coordinates between the CDS coordinates, then the peptides will
     be included into the peptide map.
     If the PTMs have been applied to the peptide sequences the function detects the
     modifications, extracts the original peptides sequences and performs the peptide
     filtration. However, the peptide sequences already updated with the PTM encoding
-    will not be modified in all instance's attributes.
+    will not be modified.
 
-    INPUT : out_file_name   [Str]   File name for the output file
-    OUTPUT:
+    :param      out_file_name      String     File name for the output file :
+    :param      PoGo_peptides                                               :
+    :param      pep_prot_index                             :
+    :param      prot_CDS_index                  :
+    :return:
     """
 
     row, col = PoGo_peptides.shape
@@ -240,8 +241,7 @@ def filter_peptides(PoGo_peptides, out_file_name=''):
             pep_seq = re.sub('\(.*\)', '',
                              pep_seq)  # Remove the PTM encoding restoring the original peptide sequence
 
-        protein_block = self.pep_prot_index[
-            pep_seq]  # Fetch the protein codes where the current peptide has been found
+        protein_block = pep_prot_index[pep_seq]  # Fetch the protein codes where the current peptide has been found
         protein_set = np.concatenate((protein_set, protein_block))
     protein_set = np.unique(protein_set)  # Shrink the protein code collection to the unique codes
 
@@ -249,7 +249,7 @@ def filter_peptides(PoGo_peptides, out_file_name=''):
     allowed_genomic_space = {}
     for unique_prot_code in protein_set:
         int_CDS_coordinates = []
-        for str_CDS_coord in self.prot_CDS_index[
+        for str_CDS_coord in prot_CDS_index[
             unique_prot_code]:  # Considering the current protein code coordinates.
             from_str_to_int = list(map(int, str_CDS_coord[0:2]))  # Convert from Str to Int all the CDS coordinates.
             from_str_to_int.append(str_CDS_coord[-1])  # Append the strand tag in a Str format
@@ -267,8 +267,8 @@ def filter_peptides(PoGo_peptides, out_file_name=''):
         if '(' in peptide_sequence:
             peptide_sequence = re.sub('\(.*\)', '', peptide_sequence)
         peptide_strand = peptide_row[3]
-        peptide_to_protein = self.pep_prot_index[
-            peptide_sequence]  # Fetch the set of proteins where the peptide has been found.
+        peptide_to_protein = pep_prot_index[peptide_sequence]   # Fetch the set of proteins where
+                                                                # the peptide has been found.
 
         # ---------- COORDINATES COMPARISON ---------- #
 
@@ -296,8 +296,10 @@ def filter_peptides(PoGo_peptides, out_file_name=''):
     # print(PoGo_peptides)
 
     if out_file_name:
-        self.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
-        # -------------------------------------------- #
+        # print(out_file_name)
+        # filtered_PoGo_peptides_file_path = pg_utils.create_path(out_file_name, add_prefix='proteogenome3_')
+        # print(filtered_PoGo_peptides_file_path)
+        pg_output.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
 
 
 def groupby_peptide(pep_input_table, peptide_sequence):
