@@ -71,7 +71,7 @@ def main(argv):
 
 
     # GENERATE WORKING DIRECTORIES
-    project_dir_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
+    project_dir_path, pg_output_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
 
     # Set the annotation format flag
     if (protein_GFF3_annots_path != None) and (protein_GTF_annots_path == None): annotations_format = 'gff3'
@@ -120,23 +120,35 @@ def main(argv):
     pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
     chdir(pogo_windows_exe_path)
 
-    PoGo_command =[pogo_windows_exe_path.joinpath('PoGo.exe'), '-fasta', protein_FASTA_seq_path, '-gtf', protein_GTF_annots_path,
+    PoGo_command =[pogo_windows_exe_path.joinpath('PoGo.exe'),
+                   '-fasta', protein_FASTA_seq_path,
+                   '-gtf', protein_GTF_annots_path,
                    '-in', PoGo_input_table_path]
     print(f'\n################\n{PoGo_command}\n################\n')
     # PoGo_command = '.\PoGo.exe'
     subprocess.run(PoGo_command, capture_output=True)
-    pg_utils.move_files(PoGo_input_path, PoGo_output_path,filenames_patterns=['*.bed','*.gct', '*_unmapped.*'])
+    pg_utils.move_files(PoGo_input_path, PoGo_output_path,filenames_patterns=['*.bed','*.gct',
+                                                                              '*_unmapped.txt', '*_out.gtf'])
 
     # subprocess.run(['dir'], shell=True)
     # subprocess.run(['.\PoGo.exe', 'capture_output=True'])
 
-    # GENERATE TRACKS
+
+    # GENERATE MAPS
+    # Peptides MAP
     PoGo_peptide_map_path = PoGo_output_path.joinpath('PoGo_Input_Table.bed')
-    PoGo_peptide_map = pg_input.load_generic_table(PoGo_peptide_map_path)
-    peptide_MAP_path = project_dir_path.joinpath('Peptide_MAP.bed')
-    dp.filter_peptides(PoGo_peptide_map, peptide_MAP_path)
-    #pg_utils.print_lst(FASTA_seq_lst)
-    # pg_utils.print_lst(annot_lst, limit=20)
+    PoGo_peptide_map_table = pg_input.load_generic_table(PoGo_peptide_map_path)
+    proteogenome_peptide_MAP_path = pg_output_path.joinpath('Peptides_MAP.bed')
+    print(f'Path for the peptide MAP ---- > {proteogenome_peptide_MAP_path}')
+    dp.filter_peptides(PoGo_peptide_map_table, pep_protein_index, prot_CDS_index,out_file_name=proteogenome_peptide_MAP_path)
+
+    # PTMs MAP
+    PoGo_PTM_map_path = PoGo_output_path.joinpath('PoGo_Input_Table_ptm.bed')
+    PoGo_PTM_map_table = pg_input.load_generic_table(PoGo_PTM_map_path)
+    proteogenome_PTM_MAP_path = pg_output_path.joinpath('PTMs_MAP.bed')
+    print(f'Path for the PTM MAP ---- > {PoGo_PTM_map_path}')
+    dp.filter_peptides(PoGo_PTM_map_table, pep_protein_index, prot_CDS_index, out_file_name=proteogenome_PTM_MAP_path)
+
 
 
 
