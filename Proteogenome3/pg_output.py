@@ -1,3 +1,6 @@
+from Proteogenome3 import pg_indexes as pg_i
+
+
 def make_sep_file(out_file_name, input_array, sep=''):
     """
     Version: 1.0
@@ -15,11 +18,11 @@ def make_sep_file(out_file_name, input_array, sep=''):
     in the first row of the input list/array.
     The column's content will be written into the file separated by the value of the sep variable.
 
-    :param  out_file_name   String      The file path where the new file will be created
-            input_array     np.array    Array of data to write in the output file
-                            List        List of data to write in the output file
+    :param      out_file_name   String      The file path where the new file will be created
+                input_array     np.array    Array of data to write in the output file
+                                List        List of data to write in the output file
 
-    :output The file with the input array content
+    :return The file with the input array content
     """
 
     out_file_hand = open(out_file_name, 'w')
@@ -53,29 +56,33 @@ def make_sep_file(out_file_name, input_array, sep=''):
 
     out_file_hand.close()
 
-def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
+def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
     """
     Version: 1.0
+    Name History: protein_set_bed - protein_track (from Proteogenome 3) - gen_protein_track
 
-    Name History: protein_set_bed - protein_track
+    Generates a .bed track with the map showing the protein location. The map is created as an heat-map based on the
+    protein expression quantification.
 
-    Receive a list of protein codes and create the .bed track with the genomic locations of the protins.
     Example of multi exon protein in input:
       UL37 - [['52573', '53060', '-'], ['51302', '51344', '-'], ['50262', '51197', '-']]
-    :param  self.prot_pep_index
-            self.prot_CDS_index
-            self.prot_PSMint_index
-    OUTPUT:
+
+    :param      prot_pep_index    :
+    :param      prot_CDS_index    :
+    :param      prot_list         List      Specifying the list of proteins, it is possible to visualise only a subset
+                                            of the entire set of proteins founded in the sample :
+    :return                       :
     """
 
-    self.protein_PSM_int_index()  # Generates the color code for protein intensities
+    prot_PSMint_index = pg_i.protein_PSM_int_index(prot_pep_index)  # Generates the color code for protein intensities
 
     if prot_list == []:
-        prot_list = self.prot_pep_index.keys()
+        prot_list = prot_pep_index.keys()
 
     print(f'Start processing {len(prot_list)} proteins')
     prot_track_fh = open(bed_fn, 'w')
 
+    chr_name = ''
     if strand == 'NC_006273.2':
         chr_name = 'NC_006273.2'  # Find the chromosome name
     else:
@@ -86,7 +93,7 @@ def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
 
     for protein in prot_list:
         prot_row = ''
-        CDS_block = self.prot_CDS_index[protein]  # Extract the block of CDS coordinates
+        CDS_block = prot_CDS_index[protein]  # Extract the block of CDS coordinates
 
         Strand = CDS_block[0][2]  # The strand is in the third position of the first CDS features record
 
@@ -97,7 +104,7 @@ def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
             chromStart = CDS_block[-1][1]  # In the negative case the bonduaries coordinates
             chromEnd = CDS_block[0][0]  # inverted their orders in the respective records
 
-        print(self.prot_CDS_index[protein])
+        print(prot_CDS_index[protein])
         print(f'{chromStart} - {chromEnd}')
 
         # Score='1'
@@ -105,8 +112,8 @@ def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
         tickEnd = chromEnd
         blockCount = str(len(CDS_block))
 
-        itemRGB = self.prot_PSMint_index[protein][2]  # Fetch the protein intensity into the proper index
-        Score = str(self.prot_PSMint_index[protein][1])  # Set the Score column in the bed protein file
+        itemRGB = prot_PSMint_index[protein][2]  # Fetch the protein intensity into the proper index
+        Score = str(prot_PSMint_index[protein][1])  # Set the Score column in the bed protein file
         # to the total intensity of the current protein.
 
         blockSizes_str = ''
@@ -136,4 +143,3 @@ def protein_track(prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
         prot_track_fh.write(row)
     prot_track_fh.close()
 
-    # print(f'{protein} - {self.prot_index[protein]}')
