@@ -1,13 +1,14 @@
 from Proteogenome3 import pg_data_processing as pg_dp
 from Proteogenome3 import pg_input
 
+import matplotlib.pyplot as plt
+from matplotlib import colors
 import numpy as np
 import re
 
 def initialise_indexes(prot_annots_path, input_table, annot_format='gff3'):
     """
     Version: 1.1
-
     Name History: initialise_indexes
 
     This function create the index for
@@ -163,27 +164,23 @@ def gen_protein_CDS_index(annotations, annot_format='gff3'):
     return prot_CDS_index
 
 
-def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange',
-                                                'red']):
+def protein_PSM_int_index(prot_pep_index,
+                          color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange', 'red']):
     # def protein_PSM_int_index(color_gradient=['blue','cyan','lime','yellow']):
 
     """
     Version: 1.0
-
     Name History: protein_PSM_int_index
 
     This function creates the protein index for the PSM and intensities.
     Moreover, it generates the RGB code for each protein intensity.
     The RGB codes will be used for the creation of the protein map.
 
-    INPUT :
-            prot_pep_index
-            prot_CDS_index
-    OUTPUT:
+    :param      prot_pep_index    :
+    :param      prot_CDS_index    :
+    :return     prot_PSMint_index :
     """
     import math
-    import matplotlib.pyplot as plt
-
     def generate_color_gradient(color_lst, reverse_gradient=False):
         """
         Version: 1.0
@@ -341,6 +338,7 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
     max_intensity = 0
     min_intensity = 0
 
+    prot_PSMint_index = {}
     for protein, pep_array in prot_pep_index.items():
         PSM_sum = 0
         inten_sum = 0
@@ -348,13 +346,12 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
             PSM_sum += int(pep_row[3])
             inten_sum += int(pep_row[4])
         prot_PSMint_index[protein] = [PSM_sum, inten_sum]
-        # intensities.append(inten_sum)
 
         if max_intensity < inten_sum: max_intensity = inten_sum
         if min_intensity > inten_sum: min_intensity = inten_sum
 
-    print('Protein-Peptide Index - Protein-CDS Index')
-    print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
+    #print('Protein-Peptide Index - Protein-CDS Index')
+    #print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
 
     RGB_tup = generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
 
@@ -383,7 +380,7 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
     prot_vec, RGB_vector = exprlev_resc_RGB(RGB_tup)
     # +++++++++++++++++++++++++++++++++++++++++++ #
 
-    print(f'{len(prot_vec)} - {len(prot_CDS_index)}')
+    # print(f'{len(prot_vec)} - {len(prot_CDS_index)}')
     # print(prot_expressions_RGB)
     # print(prot_CDS_index)
 
@@ -396,3 +393,4 @@ def protein_PSM_int_index(color_gradient=['black', 'blue', 'cyan', 'green', 'gre
         prot_PSMint_index[prot].append(RGB_code)  # prot_expressions_RGB[ind]
         print(prot, '-', prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
         # ind+=1
+    return prot_PSMint_index
