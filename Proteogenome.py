@@ -116,9 +116,8 @@ def main(argv):
     CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
 
     # TESTING COMMANDS
-
     pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
-    chdir(pogo_windows_exe_path)
+    chdir(pogo_windows_exe_path)              # Go in the PoGo executable folder
 
     PoGo_command =[pogo_windows_exe_path.joinpath('PoGo.exe'),
                    '-fasta', protein_FASTA_seq_path,
@@ -135,6 +134,11 @@ def main(argv):
 
 
     # GENERATE MAPS
+
+    # Proteins MAP
+    proteogenome_peptide_MAP_path = pg_output_path.joinpath('Proteins_MAP.bed')
+    pg_output.gen_protein_track(protein_pep_index, prot_CDS_index, bed_fn=proteogenome_peptide_MAP_path)
+
     # Peptides MAP
     PoGo_peptide_map_path = PoGo_output_path.joinpath('PoGo_Input_Table.bed')
     PoGo_peptide_map_table = pg_input.load_generic_table(PoGo_peptide_map_path)
