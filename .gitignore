@@ -5,7 +5,10 @@ Test_PoGo_absl_subprocess/
 Proteogenome_2.py
 Proteogenome_v3_notes.docx
 testfile.txt
+requirements.txt
+packages_2.txt
 
 *_notes.docx
 *.pdf
 *.tmp
+*.xlsx
