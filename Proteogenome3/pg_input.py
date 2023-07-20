@@ -4,6 +4,8 @@ from Proteogenome3 import pg_output
 from Proteogenome3 import pg_utils as u
 
 import numpy as np
+import pandas as pd
+import pathlib
 
 def file_to_lst(file_name, remove_last_row=False):
     """
@@ -89,7 +91,7 @@ def load_generic_table(filename, sep='\t', PoGo=True):
 
     return input_tab
 
-def load_input_table(filename, sep='\t'):
+def load_input_table(filename_path, sep='\t'):
         """
         Version: 1.0
         Name History: load_input_table
@@ -103,7 +105,12 @@ def load_input_table(filename, sep='\t'):
         INPUT :
         OUTPUT:
         """
-        # import numpy as np
+
+        filename = pathlib.PurePath(filename_path).name  # Extract only the filename
+        file_extension= filename.split('.')[1]           # Isolate the file extension
+
+        if file_extension == 'xlsx': print(f'Detected a {file_extension} file')
+        if file_extension == 'txt': print(f'Detected a {file_extension} file')
         input_tab = np.array([['', '', '', '', '']], dtype='object')
 
         fh = open(filename, 'r')
