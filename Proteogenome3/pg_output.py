@@ -26,6 +26,7 @@ def make_sep_file(out_file_name, input_array, sep=''):
     """
 
     out_file_hand = open(out_file_name, 'w')
+
     if type(input_array) == list and type(input_array[0]) == list:  # LIST of LISTS
         number_of_columns = len(input_array[0])
         for row in input_array:
@@ -56,6 +57,24 @@ def make_sep_file(out_file_name, input_array, sep=''):
 
     out_file_hand.close()
 
+def save_dict_list(input_data, out_file_name, input_data_type='d'):
+    """
+    This function save the content of a list or a dictionary
+    :param input_data:
+    :param out_file_name:
+    :param input_data_type:
+    :return: A file containing the input data structure
+    """
+    out_file_hand = open(out_file_name, 'w')
+    if input_data_type == 'd':
+        for k,v in input_data.items():        # Dictionary
+            out_file_hand.write(f'{k} - {v}\n')
+    elif input_data_type == 'l':              # List
+        for row in input_data:
+            out_file_hand.write(f'{row}\n')
+    out_file_hand.close()
+
+
 def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='NC_006273.2', bed_fn='test1.bed'):
     """
     Version: 1.0
@@ -74,6 +93,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='NC_0
     :return                       :
     """
 
+    proteins_not_found = []
     prot_PSMint_index = pg_i.protein_PSM_int_index(prot_pep_index)  # Generates the color code for protein intensities
 
     if prot_list == []:
@@ -93,7 +113,11 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='NC_0
 
     for protein in prot_list:
         prot_row = ''
-        CDS_block = prot_CDS_index[protein]  # Extract the block of CDS coordinates
+        try:
+            CDS_block = prot_CDS_index[protein]  # Extract the block of CDS coordinates
+        except:
+            proteins_not_found.append(protein)
+            continue
 
         Strand = CDS_block[0][2]  # The strand is in the third position of the first CDS features record
 
@@ -142,4 +166,6 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='NC_0
     for row in BED_rows:
         prot_track_fh.write(row)
     prot_track_fh.close()
+
+    return proteins_not_found
 
