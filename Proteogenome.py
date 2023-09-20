@@ -71,7 +71,7 @@ def main(argv):
 
 
     # GENERATE WORKING DIRECTORIES
-    project_dir_path, pg_output_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
+    project_dir_path, pg_output_path, pg_data_structure_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
 
     # Set the annotation format flag
     if (protein_GFF3_annots_path != None) and (protein_GTF_annots_path == None): annotations_format = 'gff3'
@@ -114,6 +114,12 @@ def main(argv):
 
     # GENERATE INDEXES
     CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
+    # SAVE INDEXES
+    pg_output.make_sep_file(pg_data_structure_path.joinpath('CDS_matrix.txt'), CDS_matrix, sep='')
+    pg_output.save_dict_list(prot_CDS_index, pg_data_structure_path.joinpath('prot_CDS_index.txt'), 'd')
+    pg_output.save_dict_list(protein_pep_index, pg_data_structure_path.joinpath('protein_pep_index.txt'), 'd')
+    pg_output.save_dict_list(pep_protein_index, pg_data_structure_path.joinpath('pep_protein_index.txt'), 'd')
+
 
     # TESTING COMMANDS
     pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
@@ -137,7 +143,8 @@ def main(argv):
 
     # Proteins MAP
     proteogenome_peptide_MAP_path = pg_output_path.joinpath('Proteins_MAP.bed')
-    pg_output.gen_protein_track(protein_pep_index, prot_CDS_index, bed_fn=proteogenome_peptide_MAP_path)
+    proteins_not_found = pg_output.gen_protein_track(protein_pep_index, prot_CDS_index, bed_fn=proteogenome_peptide_MAP_path)
+    print(f'^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPROTEINS NOT FOUND\n{proteins_not_found}\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
     # Peptides MAP
     PoGo_peptide_map_path = PoGo_output_path.joinpath('PoGo_Input_Table.bed')
