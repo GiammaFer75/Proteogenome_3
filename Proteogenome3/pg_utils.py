@@ -22,7 +22,6 @@ def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
             print(i)
             if en_sep: print(sep_type * 100)
 
-
 def create_path(input_filename, add_prefix='', add_suffix=''):
     """
     Version : 1.0
@@ -63,18 +62,26 @@ def gen_dir_structure(proj_dir_path):
     :param      proj_dir_path       String      The path where create the Proteogenome project folder:
     :return:
     """
+    # Create the Proteogenome_Project folder
     os.chdir(proj_dir_path)
     proj_dir_path = proj_dir_path.joinpath('Proteogenome_Project')
-    os.mkdir(proj_dir_path)  # Create the Proteogenome_Project folder
+    os.mkdir(proj_dir_path)
+    # Create the subfolder for the Proteogenome OUTPUT
     proteogenome_output_path = proj_dir_path.joinpath('Proteogenome_Output')
     os.mkdir(proteogenome_output_path)
     print(proteogenome_output_path)
 
+    # Create the subfolder for the Proteogenome data structure OUTPUT
+    proteogenome_data_structure = proj_dir_path.joinpath('Proteogenome_Data_Structure')
+    os.mkdir(proteogenome_data_structure)
+
+    # Create the subfolder for the PoGo INPUT files
     pogo_input_path = proj_dir_path.joinpath('PoGo_Input')
     os.mkdir(pogo_input_path)
+    # Create the subfolder for the PoGo OUTPUT files
     pogo_output_path = proj_dir_path.joinpath('PoGo_Output')
     os.mkdir(pogo_output_path)
-    return proj_dir_path, proteogenome_output_path, pogo_input_path, pogo_output_path
+    return proj_dir_path, proteogenome_output_path, proteogenome_data_structure, pogo_input_path, pogo_output_path
 
 def move_files(origin_dir, destination_dir, filenames_patterns=[]):
     """
