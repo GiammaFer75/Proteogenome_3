@@ -119,7 +119,7 @@ def gen_protein_CDS_index(annotations, annot_format='gff3'):
     INPUT : annotations     [List]  The annotation file stored in a list
             annot_format    [Str]   Tag that indicates which kind of format the annotation file is.
 
-    OUTPUT: .prot_index     [Dict]  The protein index with the CDS coordinates.
+    OUTPUT: prot_CDS_index     [Dict]  The protein index with the CDS coordinates.
                                     (Key)   [Str]               Protein ID
                                     (Value) [List][List][Str]   CDS coordinates =
                                                                 chr,start,end,strand
@@ -128,12 +128,14 @@ def gen_protein_CDS_index(annotations, annot_format='gff3'):
 
     # **************** Parsing annotations in GFF3 format
     if annot_format == 'gff3':  # specific patterns for the
-        gene_pat = re.compile(r'.*?;gene=(.*?);')  # annotation in GFF3 format
+        # gene_pat = re.compile(r'.*?;gene=(.*?);')  # annotation in GFF3 format
+        gene_pat = re.compile(r'.*?;protein_id=(.*?);')  # annotation in GFF3 format
 
 
     # **************** Parsing annotations in GTF format
     elif annot_format == 'gtf':  # specific patterns for the
-        gene_pat = re.compile(r'.*?;\sgene\s\"(.*?)\";')  # annotation in GTF format
+        # gene_pat = re.compile(r'.*?;\sgene\s\"(.*?)\";')  # annotation in GTF format
+        gene_pat = re.compile(r'.*?;\sprotein_id\s\"(.*?)\";')  # annotation in GTF format
 
     for row in annotations:
 
@@ -151,6 +153,7 @@ def gen_protein_CDS_index(annotations, annot_format='gff3'):
         # print(row)
         # print(protein_ID)
         # print('-----------------------')
+        # a=input()
 
         CDS_feat = [coord_1, coord_2, strand]
 
