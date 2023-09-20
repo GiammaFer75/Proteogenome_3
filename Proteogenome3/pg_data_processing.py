@@ -152,11 +152,11 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     # print(' --------------- PTMs_to_remove ---------------\n',PTMs_to_remove)
     # print(' ***************** peptide_tab *****************\n',peptide_tab)
 
-    PTMs_code = {'phosphorylation': '(phospho)', 'acetylation': '(acetyl)', 'acetylation': '(acetyl)',
-                 'amidation': '(amidated)',
-                 'oxidation': '(oxidation)', 'methylation': '(methyl)', 'ubiquitinylation': '(glygly; gg)',
-                 'sulfation': '(sulfo)',
-                 'palmitoylation': '(palmitoyl)', 'formylation': '(formyl)', 'deamidation': '(deamidated)'
+    PTMs_code = {'phosphorylation': '(phospho)', 'phospho': '(phospho)','acetylation': '(acetyl)', 'acetyl': '(acetyl)',
+                 'amidation': '(amidated)', 'oxidation': '(oxidation)', 'methylation': '(methyl)',
+                 'methyl': '(methyl)', 'ubiquitinylation': '(glygly; gg)', 'sulfation': '(sulfo)',
+                 'palmitoylation': '(palmitoyl)', 'formylation': '(formyl)', 'deamidation': '(deamidated)',
+                 'nitrosyl': '(oxidation)'
                  }  # Any other post-translational modification
 
     peptides_PTMs_updated = np.array([[]])
@@ -249,13 +249,13 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
     allowed_genomic_space = {}
     for unique_prot_code in protein_set:
         int_CDS_coordinates = []
-        for str_CDS_coord in prot_CDS_index[
-            unique_prot_code]:  # Considering the current protein code coordinates.
-            from_str_to_int = list(map(int, str_CDS_coord[0:2]))  # Convert from Str to Int all the CDS coordinates.
-            from_str_to_int.append(str_CDS_coord[-1])  # Append the strand tag in a Str format
-            int_CDS_coordinates.append(from_str_to_int)  # Increase the coordinate bolck
-        allowed_genomic_space[
-            unique_prot_code] = int_CDS_coordinates  # Append the new piece of allowed genomic coordinates.
+        try:
+            for str_CDS_coord in prot_CDS_index[unique_prot_code]:  # Considering the current protein code coordinates.
+                from_str_to_int = list(map(int, str_CDS_coord[0:2]))  # Convert from Str to Int all the CDS coordinates.
+                from_str_to_int.append(str_CDS_coord[-1])  # Append the strand tag in a Str format
+                int_CDS_coordinates.append(from_str_to_int)  # Increase the coordinate bolck
+            allowed_genomic_space[unique_prot_code] = int_CDS_coordinates  # Append the new piece of allowed genomic coordinates.
+        except: print(f'ERROR - {unique_prot_code}')
 
     print(allowed_genomic_space)
     ##########################################################################
@@ -273,25 +273,26 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
         # ---------- COORDINATES COMPARISON ---------- #
 
         for protein in peptide_to_protein:  # Iterate the set of protein
+            try:
+                CDS_block = allowed_genomic_space[protein]  # Fetch the genomic coordinates of the CDS of the protein where the peptide has been found.
+                for CDS in CDS_block:
+                    CDS_coord_1 = CDS[0]
+                    CDS_coord_2 = CDS[1]
+                    if peptide_strand == '+':
+                        # if (peptide_coord_1>=CDS_coord_1) and (peptide_coord_2<=CDS_coord_2): # VALID genomic coordinates
+                        #     pass
+                        # else:                                                                 # INVALID genomic coordinates
+                        #     PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
 
-            CDS_block = allowed_genomic_space[
-                protein]  # Fetch the genomic coordinates of the CDS of the protein where the peptide has been found.
-            for CDS in CDS_block:
-                CDS_coord_1 = CDS[0]
-                CDS_coord_2 = CDS[1]
-                if peptide_strand == '+':
-                    # if (peptide_coord_1>=CDS_coord_1) and (peptide_coord_2<=CDS_coord_2): # VALID genomic coordinates
-                    #     pass
-                    # else:                                                                 # INVALID genomic coordinates
-                    #     PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-
-                    if (peptide_coord_1 < CDS_coord_1) and (
-                            peptide_coord_2 > CDS_coord_2):  # INVALID genomic coordinates
-                        try:
-                            # PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-                            PoGo_peptides[pep_row_index, 0] = ''
-                        except:
-                            print('Invalid row index -----> ', PoGo_peptides.shape, '-', pep_row_index)
+                        if (peptide_coord_1 < CDS_coord_1) and (
+                                peptide_coord_2 > CDS_coord_2):  # INVALID genomic coordinates
+                            try:
+                                # PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
+                                PoGo_peptides[pep_row_index, 0] = ''
+                            except:
+                                print('Invalid row index -----> ', PoGo_peptides.shape, '-', pep_row_index)
+            except:
+                print(f'Protein {protein} NOT FOUND. Genomic coordinates for this position of the peptide in the genome skipped.')
     # print('PoGo_peptides')
     # print(PoGo_peptides)
 
