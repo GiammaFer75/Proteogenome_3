@@ -108,16 +108,15 @@ def load_input_table(filename_path, sep='\t'):
 
         filename = pathlib.PurePath(filename_path).name  # Extract only the filename
         file_extension= filename.split('.')[1]           # Isolate the file extension
+        if file_extension: print(f'Detected a {file_extension} file')
 
-        if file_extension == 'xlsx': print(f'Detected a {file_extension} file')
-        if file_extension == 'txt': print(f'Detected a {file_extension} file')
         input_tab = np.array([['', '', '', '', '']], dtype='object')
 
-        fh = open(filename, 'r')
+        fh = open(filename_path, 'r')
         for row in fh:
             row = row.split(sep)
-            row = np.array(row[:-1])
-            # row[-1]=row[-1].replace('\n','')
+            if row[-1] == '\n': row = np.array(row[:-1])         # Remove the \n from the last position in the array
+            if '\n' in row[-1]: row[-1]=row[-1].replace('\n','') # Remove the \n if it is embedded in the last position
             input_tab = np.concatenate([input_tab, [row]], axis=0)
         fh.close()
         input_tab = input_tab[1:, :]  # Remove initialisation row
