@@ -1,6 +1,7 @@
 from Proteogenome3 import pg_output
 from Proteogenome3 import pg_utils
 
+import pandas as pd
 import numpy as np
 import re
 
@@ -35,78 +36,26 @@ def CDS_annot_matrix(annotations_in_lst):
     return annotation_matrix[annotation_matrix[:, 2] == 'CDS']  # Filter only for coding regions
 
 
-def annot_to_df(annotations, annot_format ='gff3'):
+def annot_to_df(annotations_path, annot_format ='gff3'):
     """
-    Version: 1.0
+    Version: 2.0
     Name History: annot_to_df
 
-    This function extracts relevant data from the annotation file and put them in a DataFrame
+    This function upload the genome annotation in a data frame
 
-    INPUT : annotations     List    List list filled with the annotation rows
-    OUTPUT:
+    :param      annotations_path    Str         The file name of the GFF/GTF genome annotation
+    :return     annotation_df       DataFrame   The data frame with the annotation file content
     """
-    #annotations_fh = open(GFF3,'r')
-
-    protein_index = {}
-    self.annotations_df = pd.DataFrame()
-
-    new_row = {}      # In order to append a new row to the dataframe I need a dictionary
-
-    # **************** Parsing file for GFF3 format
-    if annot_format =='gff3':
-        unique_pat = re.compile(r'(.*?)\t')
-        ID_pat = re.compile(r'.*?\tID=(.*?);')            # specific patterns for the
-        gene_pat = re.compile(r'.*?;gene=(.*?);')         # annotation in GFF3 format
-        product_pat = re.compile(r'.*?;product=(.*?)$')
-        col_index=[2, 3, 4, 6]
-
-    elif annot_format == 'gtf':
-        unique_pat = re.compile(r'(.*?)\t')
-        ID_pat = re.compile(r'.*?\sgene_id\s\"(.*?)\";')   # specific patterns for the
-        gene_pat = re.compile(r'.*?;\sgene\s\"(.*?)\";')   # annotation in GTF format
-        product_pat = re.compile(r'.*?;\sproduct\s\"(.*?)\"$')
-        col_index=[2, 3, 4, 6]
-
-    for row in annotations:
-
-        if (row[0]!='#') and ('country=United Kingdom: Cardiff;culture-collection=ATCC' not in row):
-            match_lst=unique_pat.findall(row)
-
-            # print(row)
-            # a=input()
-            try:
-                new_row['row_type'] = match_lst[col_index[0]]      # 2 - GFF3 column 3
-                new_row['coordinate1'] = match_lst[col_index[1]]   # 3 - GFF3 column 4
-                new_row['coordinate2'] = match_lst[col_index[2]]   # 4 - GFF3 column 5
-                new_row['strand'] = match_lst[col_index[3]]        # 6 - GFF3 column 7
-            except:
-                print('This line returns an error on parsing procedure!!!')
-                print(f'-------------------------------------------------\n {row}')
-                print('Please press a button to continue')
-                #a=input()
-
-            try:
-                new_row['ID'] = ID_pat.match(row).group(1)
-            except:
-                new_row['ID'] = 'ID nf'
-            try:
-                new_row['gene'] = gene_pat.match(row).group(1)
-            except:
-                new_row['gene'] = 'gene nf'
-            try:
-                new_row['product'] = product_pat.match(row).group(1)
-                new_row['product'] = new_row['product'].split(';')[0]
-            except:
-                new_row['product'] = 'product nf'
-
-            #print(new_row)
-
-            self.annotations_df = self.annotations_df.append(new_row, ignore_index=True)
-    self.annotations_df = self.annotations_df[['row_type', 'coordinate1', 'coordinate2',
-                                               'strand', 'ID', 'gene', 'product']]
-    #annotations_fh.close()
-
-    #return self.GFF3_to_df
+    file_type = annotations_path[-3:]
+    gtf_gff_column_names = ['seqname', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+    bed_column_names = ["chrom", "start", "end", "name", "score", "strand", "thickStart",    "thickEnd", "itemRrgb",
+                        "blockCount", "blockSizes", "blockStarts"]
+    if (file_type == "gtf") or (file_type == "GTF") or (file_type == "gff") or (file_type == "GFF"):
+        column_names = gtf_gff_column_names
+    elif (file_type == "bed") or (file_type == "BED"):
+        column_names = bed_column_names
+    annotation_df = pd.read_csv(annotations_path, sep = "\t", names = column_names)
+    return annotation_df
 
 def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     """
@@ -244,20 +193,35 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
         protein_block = pep_prot_index[pep_seq]  # Fetch the protein codes where the current peptide has been found
         protein_set = np.concatenate((protein_set, protein_block))
     protein_set = np.unique(protein_set)  # Shrink the protein code collection to the unique codes
-
+    print(f'protein_set - {protein_set}')
     ################### GENERATE THE ALLOWED GENOMIC SPACE ###################
     allowed_genomic_space = {}
+
+    # Check the type of data in the first position of the CDS array
+    p_code = list(prot_CDS_index.items())[0][1] # Extract the first CDS record
+    print(f'p_code - {p_code}')
+    first_cds = p_code[0]
+    print(f'first_cds - {first_cds}')
+    cpo, cpt = None, None
+    if first_cds[0].replace('.','').isdigit():
+        cpo, cpt = 0, 2   # For virus there is no chr number
+    else:
+        cpo, cpt = 1, 3   # For human the chr number is in position 0. Then take position 1 and 2 in the array
+
+
     for unique_prot_code in protein_set:
         int_CDS_coordinates = []
         try:
             for str_CDS_coord in prot_CDS_index[unique_prot_code]:  # Considering the current protein code coordinates.
-                from_str_to_int = list(map(int, str_CDS_coord[0:2]))  # Convert from Str to Int all the CDS coordinates.
+                from_str_to_int = list(map(int, str_CDS_coord[cpo:cpt]))  # Convert from Str to Int all the CDS coordinates.
                 from_str_to_int.append(str_CDS_coord[-1])  # Append the strand tag in a Str format
                 int_CDS_coordinates.append(from_str_to_int)  # Increase the coordinate bolck
             allowed_genomic_space[unique_prot_code] = int_CDS_coordinates  # Append the new piece of allowed genomic coordinates.
-        except: print(f'ERROR - {unique_prot_code}')
+        except Exception as excpt:
+            print(f'ERROR - {unique_prot_code}')
+            print(excpt)
 
-    print(allowed_genomic_space)
+    print(f'allowed_genomic_space\n---------------------\n{allowed_genomic_space}')
     ##########################################################################
 
     for pep_row_index, peptide_row in enumerate(coord_pep_strand):  # Iterate over the PoGo peptide map
@@ -301,6 +265,8 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
         # filtered_PoGo_peptides_file_path = pg_utils.create_path(out_file_name, add_prefix='proteogenome3_')
         # print(filtered_PoGo_peptides_file_path)
         pg_output.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
+
+
 
 
 def groupby_peptide(pep_input_table, peptide_sequence):
