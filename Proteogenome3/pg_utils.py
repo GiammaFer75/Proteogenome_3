@@ -1,6 +1,59 @@
 import os
+import sys
+import json
 import shutil
 import pathlib
+import requests
+
+
+def check_input_json(proteogenome_project_dir, proteogenome_input_json = 'proteogenome_input.json'):
+    input_file = pathlib.Path(pathlib.PurePath(proteogenome_project_dir, f'./{proteogenome_input_json}'))
+    print('Looking for - ', input_file)
+    return input_file.is_file()
+def input_json(project_directory):
+    """
+    Version : 1.0
+    Name History : input_json
+    The function check for the json input file in the project_directory.
+    Returns the parameters found in the json file. They are empty if json is not presents.
+    :param  project_directory   Str path to the project directory:
+    :return pogo_windows_exe_path:
+    :return protein_FASTA_seq_path:
+    :return protein_GFF3_annots_path:
+    :return protein_GTF_annots_path:
+    :return peptides_table_path:
+    """
+    species = 'homo sapiens'
+
+    input_json_path = pathlib.Path(project_directory)
+
+    try: # if input_json_path:
+        input_json_path = str(pathlib.PureWindowsPath(list(input_json_path.glob("proteogenome_input.json"))[0]))
+        input_json = open(input_json_path, 'r')
+        input_json = json.load(input_json)
+
+        input_json_keys = input_json.keys()
+        # print(input_json_keys)
+        # Fill the field not input by the user
+        if not 'pogo_windows_exe' in input_json_keys: input_json['pogo_windows_exe'] = None
+        if not 'protein_FASTA_seq' in input_json_keys: input_json['protein_FASTA_seq'] = None
+        if not 'protein_GFF3_annots' in input_json_keys: input_json['protein_GFF3_annots'] = None
+        if not 'protein_GTF_annots' in input_json_keys: input_json['protein_GTF_annots'] = None
+        if not 'peptides_table' in input_json_keys: input_json['peptides_table'] = None
+        # Upload the input path
+        pogo_windows_exe_path = input_json['pogo_windows_exe']
+        protein_FASTA_seq_path = input_json['protein_FASTA_seq']
+        protein_GFF3_annots_path = input_json['protein_GFF3_annots']
+        protein_GTF_annots_path = input_json['protein_GTF_annots']
+        peptides_table_path = input_json['peptides_table']
+    except: #else:
+        pogo_windows_exe_path, protein_FASTA_seq_path, \
+        protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path = '', '', '', '', ''
+
+    # print('From JSON - ', pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path)
+    return pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, \
+           peptides_table_path, species
+
 
 def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
     """
@@ -9,10 +62,10 @@ def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
 
     Print the list content limitely to the element indicated by the parameter 'limit'.
 
-    :param      input_list  List    Items to print.                                                  :
-    :param      limit       Int     Number of items to print.                                        :
-    :param      en_sept     Bool    Enable the separation of each element of the list with a string. :
-    :param      sep_type    Char    The character that will make up the separator string.            :
+    :param  input_list  List    Items to print.                                                  :
+    :param  limit       Int     Number of items to print.                                        :
+    :param  en_sept     Bool    Enable the separation of each element of the list with a string. :
+    :param  sep_type    Char    The character that will make up the separator string.            :
 
     :return     Print the data structure content:
     """
@@ -98,4 +151,77 @@ def move_files(origin_dir, destination_dir, filenames_patterns=[]):
             dest_abs_file_name = destination_dir.joinpath(file_name)
             print(f'{origin_abs_file_name} --------> {dest_abs_file_name}')
             origin_abs_file_name.rename(dest_abs_file_name)
+
+def Ensembl_API_symbol(accession, speces):
+    """
+    Version : 1.0
+
+    The API entry point for the Ensemble database (adapted from the https://rest.ensembl.org/documentation/info/xref_external)
+
+    The conversion will be performed for a single accession at once (only GET method was available)
+    Quote Ensemble documentation for this entry point:
+    "Looks up an external symbol and returns all Ensembl objects linked to it. This can be a display name for a
+    gene/transcript/translation, a synonym or an externally linked reference. If a gene's transcript is linked to the
+    supplied symbol the service will return both gene and transcript (it supports transient links)."
+    """
+    #import requests, sys
+    decoded = 0
+    server = "https://rest.ensembl.org"
+    entry_point = f'/xrefs/symbol/{speces}/{accession}?'
+
+    r = requests.get(server + entry_point, headers={"Content-Type": "application/json"})
+
+    if not r.ok:
+        r.raise_for_status()
+        sys.exit()
+    decoded = r.json()
+    # print(accession)
+    # print(decoded)
+    # a=input()
+    return decoded
+
+
+def UniProt2Ensembl(accession_lst, speces, isoforms=False, reqs_per_sec=15):
+    """
+    Version : 1.0
+    Convert a list of UniProt codes in Ensemble protein accession codes.
+    The conversion could be performed to obtain only the canonical accession or including isoforms.
+    :param  reqs_per_sec        Int     The limit of request per secons allowed for the Ensembl server:
+    :return conversion_dict     Dict    The dictionary with k: UniProt accession
+                                                            v: List of conversion in Ensembl
+    """
+    import time
+
+    start = time.time()
+
+    req_count = 0
+    last_req = 0
+
+    print(f'Protein to convert - {len(accession_lst)}')
+    conversion_dict = {}
+    for accession_n, accession in enumerate(accession_lst):
+        # print(accession)
+        print(f'{accession_n + 1} - {accession}                  ', end='\r')
+        # check if we need to rate limit ourselves
+        if req_count >= reqs_per_sec:
+            delta = time.time() - last_req
+            if delta < 1:
+                time.sleep(1 - delta)
+            last_req = time.time()
+            req_count = 0
+
+        conversion_lst = Ensembl_API_symbol(accession, speces)
+        req_count += 1
+        conversion_lst = [id_type['id'] for id_type in conversion_lst if
+                          id_type['type'] == 'translation']  # Extract canonical and isoforms accessions
+
+        # Only if you want the first Ensemble translation code of the list (should be the canonical form)
+        if not isoforms and conversion_lst:
+            conversion_dict[accession] = conversion_lst[0]
+        else:
+            conversion_dict[accession] = conversion_lst
+    end = time.time()
+    print(f'\n{end - start} sec')
+    return conversion_dict
+
 
