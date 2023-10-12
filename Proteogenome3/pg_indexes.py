@@ -1,17 +1,20 @@
 from Proteogenome3 import pg_data_processing as pg_dp
+from Proteogenome3 import pg_utils
 from Proteogenome3 import pg_input
 
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import pandas as pd
 import numpy as np
 import re
 
-def initialise_indexes(prot_annots_path, input_table, annot_format='gff3'):
+
+def initialise_indexes(prot_annots_path, input_table, annot_format='gtf'):
     """
     Version: 1.1
     Name History: initialise_indexes
 
-    This function create the index for
+    This function create the index for (the '--->' means 'to')
         - CDS     ---> annotation - in the genome
         - Protein ---> CDS        - that cotribute to the protein production
         - Protein ---> Peptides   - that confirmed the protein existence in the proteomics data
@@ -24,19 +27,36 @@ def initialise_indexes(prot_annots_path, input_table, annot_format='gff3'):
            **********************
            """)
 
-    genome_annot_lst = pg_input.file_to_lst(prot_annots_path)                             # Upload the genome annotation file into a list
-    CDS_matrix = pg_dp.CDS_annot_matrix(genome_annot_lst)                                 # Matrix with CDS annotations info only
-    prot_CDS_index = gen_protein_CDS_index(CDS_matrix, annot_format=annot_format)         # Dictionary of proteins and their group of CDS
-    prot_pep_index = protein_peptide_index(input_table, )
-    pep_prot_index = peptide_protein_index(input_table)
 
-    # try:
+    prot_pep_index = protein_peptide_index(input_table)
+    pep_prot_index = peptide_protein_index(input_table)
+    unique_protein_list = prot_pep_index.keys()
+
+    if annot_format=='gff3':
+        genome_annot_lst = pg_input.file_to_lst(prot_annots_path)  # Upload the genome annotation file into a list
+        CDS_matrix = pg_dp.CDS_annot_matrix(genome_annot_lst)                                 # Matrix with CDS annotations info only
+        prot_CDS_index = gen_protein_CDS_index(CDS_matrix, annot_format=annot_format)         # Dictionary of proteins and their group of CDS
+        return CDS_matrix, prot_CDS_index, prot_pep_index, pep_prot_index
+    else:
+        ensembl_prot_CDS_index = {}
+        CDS_matrix = []
+        prot_CDS_index = gen_protein_CDS_index(prot_annots_path, annot_format=annot_format)
+        for ensembl_acc in unique_protein_list:
+            prot_block = prot_CDS_index[prot_CDS_index['attribute'].str.contains(ensembl_acc)] \
+                                                                                 [['seqname', 'start', 'end', 'strand']]
+            if prot_block.empty == False: # Consider only the the protein with CDS. UniProt accession not converted will be skipped
+                ensembl_prot_CDS_index[ensembl_acc] = prot_block.values.tolist()
+        print(ensembl_prot_CDS_index)
+        print(f'\nCDS_matrix\n----------\n{CDS_matrix}')
+        a=input('Look at the prot_CDS ----- STOP')
+        return CDS_matrix, ensembl_prot_CDS_index, prot_pep_index, pep_prot_index
+                # try:
     #     prot_pep_index = protein_peptide_index(input_table)
     #     pep_prot_index = peptide_protein_index(input_table)
     # except:
     #     print('Proteomics data not found')
 
-    return CDS_matrix, prot_CDS_index, prot_pep_index, pep_prot_index
+
 
 def protein_peptide_index(pep_input_table):
     """
@@ -94,7 +114,7 @@ def peptide_protein_index(pep_input_table):
         return pep_prot_index
 
 
-def gen_protein_CDS_index(annotations, annot_format='gff3'):
+def gen_protein_CDS_index(annotations, annot_format='gtf'):
     """
     Version: 3.0
 
@@ -130,39 +150,42 @@ def gen_protein_CDS_index(annotations, annot_format='gff3'):
     if annot_format == 'gff3':  # specific patterns for the
         # gene_pat = re.compile(r'.*?;gene=(.*?);')  # annotation in GFF3 format
         gene_pat = re.compile(r'.*?;protein_id=(.*?);')  # annotation in GFF3 format
+        for row in annotations:
+
+            strand = row[6]
+
+            if strand == '+':
+                coord_1 = row[3]
+                coord_2 = row[4]
+            else:  # If the coding region is in reverse starnd
+                coord_1 = row[4]
+                coord_2 = row[3]
+
+            print(row[-1])
+            protein_ID = gene_pat.match(row[-1]).group(1)  # Find the current protein identifier.
+            # print(row)
+            # print(protein_ID)
+            # print('-----------------------')
+            # a=input()
+
+            CDS_feat = [coord_1, coord_2, strand]
+
+            if (protein_ID in prot_CDS_index):
+                # Append the features of the current CDS on the list of CDS that belongs to the current protein.
+                prot_CDS_index[protein_ID].append(CDS_feat)
+
+            else:
+                prot_CDS_index[protein_ID] = [CDS_feat]
 
 
-    # **************** Parsing annotations in GTF format
-    elif annot_format == 'gtf':  # specific patterns for the
-        # gene_pat = re.compile(r'.*?;\sgene\s\"(.*?)\";')  # annotation in GTF format
-        gene_pat = re.compile(r'.*?;\sprotein_id\s\"(.*?)\";')  # annotation in GTF format
+    # **************** The GFF format is converted straight to the CDS index
+    elif annot_format == 'gtf':
+        col_names = ["seqname","source","feature","start","end","score","strand","frame","attribute"]
+        annot_to_df = pd.read_csv(annotations, sep="\t", names=col_names)
+        prot_CDS_index = annot_to_df[annot_to_df['feature'] == "CDS"]                # Extract CDS
 
-    for row in annotations:
+    print(f'\n***********\nprot_CDS_index\n***********\n{prot_CDS_index}')
 
-        strand = row[6]
-
-        if strand == '+':
-            coord_1 = row[3]
-            coord_2 = row[4]
-        else:  # If the coding region is in reverse starnd
-            coord_1 = row[4]
-            coord_2 = row[3]
-
-        print(row[-1])
-        protein_ID = gene_pat.match(row[-1]).group(1)  # Find the current protein identifier.
-        # print(row)
-        # print(protein_ID)
-        # print('-----------------------')
-        # a=input()
-
-        CDS_feat = [coord_1, coord_2, strand]
-
-        if (protein_ID in prot_CDS_index):
-            # Append the features of the current CDS on the list of CDS that belongs to the current protein.
-            prot_CDS_index[protein_ID].append(CDS_feat)
-
-        else:
-            prot_CDS_index[protein_ID] = [CDS_feat]
 
     return prot_CDS_index
 
