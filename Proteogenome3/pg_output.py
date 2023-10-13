@@ -147,7 +147,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
         #     chromStart = CDS_block[0][0]  # Chromosome Start is in the first position of the first record
         #     chromEnd = CDS_block[-1][1]  # Chromosome End is in the second position of the last record
         # else:
-        #     chromStart = CDS_block[-1][1]  # In the negative case the bonduaries coordinates
+        #     chromStart = CDS_block[-1][1]  # In the negative case the boundaries coordinates
         #     chromEnd = CDS_block[0][0]  # inverted their orders in the respective records
 
         Strand = CDS_block[0][strand_position]  #
@@ -156,7 +156,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
             chromStart = CDS_block[0][start_p]  # Chromosome Start is in the first position of the first record
             chromEnd = CDS_block[-1][end_p]  # Chromosome End is in the second position of the last record
         else:
-            chromStart = CDS_block[-1][start_n]  # In the negative case the bonduaries coordinates
+            chromStart = CDS_block[-1][start_n]  # In the negative case the boundaries coordinates
             chromEnd = CDS_block[0][end_n]  # inverted their orders in the respective records
 
         print(prot_CDS_index[protein])
@@ -189,12 +189,12 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
         if organism == 'homo':
             blockStarts_str = blockStarts_str.split(',')
             blockStarts_str = [x for x in blockStarts_str if x != '']
-            blockStarts_str.reverse()
+            if Strand == '-': blockStarts_str.reverse()
             blockStarts_str = ','.join(blockStarts_str)
 
             blockSizes_str = blockSizes_str.split(',')
             blockSizes_str = [x for x in blockSizes_str if x != '']
-            blockSizes_str.reverse()
+            if Strand == '-': blockSizes_str.reverse()
             blockSizes_str = ','.join(blockSizes_str)
 
         if type(CDS_start) == float:        # For the genomes manipulated with pd.DataFrame the coordinates are floats NOT str
