@@ -243,16 +243,11 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
                     CDS_coord_1 = CDS[0]
                     CDS_coord_2 = CDS[1]
                     if peptide_strand == '+':
-                        # if (peptide_coord_1>=CDS_coord_1) and (peptide_coord_2<=CDS_coord_2): # VALID genomic coordinates
-                        #     pass
-                        # else:                                                                 # INVALID genomic coordinates
-                        #     PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-
                         if (peptide_coord_1 < CDS_coord_1) and (
                                 peptide_coord_2 > CDS_coord_2):  # INVALID genomic coordinates
                             try:
-                                # PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-                                PoGo_peptides[pep_row_index, 0] = ''
+                                PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
+                                # PoGo_peptides[pep_row_index, 0] = ''
                             except:
                                 print('Invalid row index -----> ', PoGo_peptides.shape, '-', pep_row_index)
             except:
