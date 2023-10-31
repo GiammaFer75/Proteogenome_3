@@ -19,8 +19,7 @@ def CDS_annot_matrix(annotations_in_lst):
 
     first = True
     for row in annotations_in_lst:
-        if row[0] != '#':
-
+        if (row != '') and (row[0] != '#'):
             if first:
                 row_array = np.array(row.split('\t'), dtype=object)  # Split the current annotation rows in columns
                 annotation_matrix = np.array([row_array])  # increase the annotation matrix dimension
