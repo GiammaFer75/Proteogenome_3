@@ -23,34 +23,41 @@ def input_json(project_directory):
     :return protein_GTF_annots_path:
     :return peptides_table_path:
     """
-    species = 'homo sapiens'
 
     input_json_path = pathlib.Path(project_directory)
 
-    try: # if input_json_path:
-        input_json_path = str(pathlib.PureWindowsPath(list(input_json_path.glob("proteogenome_input.json"))[0]))
+    input_json_path = list(input_json_path.glob("proteogenome_input.json"))
+    if not input_json_path:
+        print(f'The proteogenome_input.json NOT FOUND in the current project folder')
+        pogo_windows_exe_path, protein_FASTA_seq_path, \
+            protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path, species = '', '', '', '', ''
+    else:
+        # str(pathlib.PureWindowsPath(list(input_json_path.glob("proteogenome_input.json"))[0]))
+        input_json_path = str(pathlib.PureWindowsPath(input_json_path[0]))
         input_json = open(input_json_path, 'r')
         input_json = json.load(input_json)
-
         input_json_keys = input_json.keys()
         # print(input_json_keys)
         # Fill the field not input by the user
+        if not 'species' in input_json_keys: input_json['species'] = None
         if not 'pogo_windows_exe' in input_json_keys: input_json['pogo_windows_exe'] = None
         if not 'protein_FASTA_seq' in input_json_keys: input_json['protein_FASTA_seq'] = None
         if not 'protein_GFF3_annots' in input_json_keys: input_json['protein_GFF3_annots'] = None
         if not 'protein_GTF_annots' in input_json_keys: input_json['protein_GTF_annots'] = None
         if not 'peptides_table' in input_json_keys: input_json['peptides_table'] = None
+
+        species = input_json['species']
+
         # Upload the input path
         pogo_windows_exe_path = input_json['pogo_windows_exe']
         protein_FASTA_seq_path = input_json['protein_FASTA_seq']
         protein_GFF3_annots_path = input_json['protein_GFF3_annots']
         protein_GTF_annots_path = input_json['protein_GTF_annots']
         peptides_table_path = input_json['peptides_table']
-    except: #else:
-        pogo_windows_exe_path, protein_FASTA_seq_path, \
-        protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path = '', '', '', '', ''
 
-    # print('From JSON - ', pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path)
+    print('From JSON - {}\n{}\n{}\n{}\n{}\n' \
+          .format(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, \
+          protein_GTF_annots_path, peptides_table_path))
     return pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, \
            peptides_table_path, species
 
