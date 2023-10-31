@@ -8,8 +8,10 @@ import pandas as pd
 import numpy as np
 import re
 
+def roundfloat(x, pn=4):
+    return round(x, pn)
 
-def initialise_indexes(prot_annots_path, input_table, annot_format='gtf'):
+def initialise_indexes(prot_annots_path, input_table, annot_format='gff_compliant'):
     """
     Version: 1.1
     Name History: initialise_indexes
@@ -32,10 +34,10 @@ def initialise_indexes(prot_annots_path, input_table, annot_format='gtf'):
     pep_prot_index = peptide_protein_index(input_table)
     unique_protein_list = prot_pep_index.keys()
 
-    if annot_format=='gff3':
-        genome_annot_lst = pg_input.file_to_lst(prot_annots_path)  # Upload the genome annotation file into a list
+    if annot_format == 'not_gtf_compliant':
+        genome_annot_lst = pg_input.file_to_lst(prot_annots_path)                             # Upload the genome annotation file into a list
         CDS_matrix = pg_dp.CDS_annot_matrix(genome_annot_lst)                                 # Matrix with CDS annotations info only
-        prot_CDS_index = gen_protein_CDS_index(CDS_matrix, annot_format=annot_format)         # Dictionary of proteins and their group of CDS
+        prot_CDS_index = gen_protein_CDS_index(CDS_matrix, annot_format='not_gtf_compliant')  # Dictionary of proteins and their group of CDS
         return CDS_matrix, prot_CDS_index, prot_pep_index, pep_prot_index
     else:
         ensembl_prot_CDS_index = {}
@@ -114,7 +116,7 @@ def peptide_protein_index(pep_input_table):
         return pep_prot_index
 
 
-def gen_protein_CDS_index(annotations, annot_format='gtf'):
+def gen_protein_CDS_index(annotations, annot_format=''):
     """
     Version: 3.0
 
@@ -146,14 +148,14 @@ def gen_protein_CDS_index(annotations, annot_format='gtf'):
     """
     prot_CDS_index = {}
 
-    # **************** Parsing annotations in GFF3 format
-    if annot_format == 'gff3':  # specific patterns for the
-        # gene_pat = re.compile(r'.*?;gene=(.*?);')  # annotation in GFF3 format
-        gene_pat = re.compile(r'.*?;protein_id=(.*?);')  # annotation in GFF3 format
+    # **************** Parsing annotations in GFF format
+    if annot_format == 'not_gtf_compliant':  # specific patterns for the
+        gene_pat = re.compile(r'.*?\sgene\s\"(.*?)\";')          # annotation in GTF format
+        # gene_pat = re.compile(r'.*?;gene=(.*?);')        # annotation in GFF3 format
+        # gene_pat = re.compile(r'.*?;protein_id=(.*?);')  # annotation in GFF3 format
         for row in annotations:
 
             strand = row[6]
-
             if strand == '+':
                 coord_1 = row[3]
                 coord_2 = row[4]
@@ -163,29 +165,25 @@ def gen_protein_CDS_index(annotations, annot_format='gtf'):
 
             print(row[-1])
             protein_ID = gene_pat.match(row[-1]).group(1)  # Find the current protein identifier.
-            # print(row)
-            # print(protein_ID)
-            # print('-----------------------')
-            # a=input()
+            print(row)
+            print(protein_ID)
+            print('-----------------------')
 
             CDS_feat = [coord_1, coord_2, strand]
 
             if (protein_ID in prot_CDS_index):
                 # Append the features of the current CDS on the list of CDS that belongs to the current protein.
                 prot_CDS_index[protein_ID].append(CDS_feat)
-
             else:
                 prot_CDS_index[protein_ID] = [CDS_feat]
 
-
-    # **************** The GFF format is converted straight to the CDS index
-    elif annot_format == 'gtf':
+    # **************** The GTF format is converted straight to the CDS index
+    elif annot_format == 'gtf_compliant':
         col_names = ["seqname","source","feature","start","end","score","strand","frame","attribute"]
         annot_to_df = pd.read_csv(annotations, sep="\t", names=col_names)
         prot_CDS_index = annot_to_df[annot_to_df['feature'] == "CDS"]                # Extract CDS
 
     print(f'\n***********\nprot_CDS_index\n***********\n{prot_CDS_index}')
-
 
     return prot_CDS_index
 
@@ -207,6 +205,7 @@ def protein_PSM_int_index(prot_pep_index,
     :return     prot_PSMint_index :
     """
     import math
+
     def generate_color_gradient(color_lst, reverse_gradient=False):
         """
         Version: 1.0
@@ -349,7 +348,7 @@ def protein_PSM_int_index(prot_pep_index,
         # Print the content of the vectors used for the RGB assignment
         prot_number = 0
         for i in range(0, len(max_int_vec[:-1])):
-            RGB = RGB_tup[int_scaled[i] - 1]
+            RGB = list(map(roundfloat, RGB_tup[int_scaled[i] - 1]))
             print(
                 f'    {prot_number}\t\t-\t     {proteins[i]}\t-\t      {max_int_vec[i]}       \t-\t         {int_scaled[i] - 1}       \t-\t{RGB}   ')
             # print(f'\t\t\t\t\t\t\t\t\t{RGB_vec[i]}')
@@ -380,7 +379,6 @@ def protein_PSM_int_index(prot_pep_index,
     #print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
 
     RGB_tup = generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
-
     # ----------------------- #
     # DRAW THE COLOR GRADIENT #
     # ----------------------- #
@@ -414,7 +412,7 @@ def protein_PSM_int_index(prot_pep_index,
     print('\nUPDATING PROTEIN INDEX WITH RGB INTENSITIES\n-------------------------------------------')
     ind = 0
     for ind, prot in enumerate(prot_vec):
-        RGB_tup = RGB_vector[ind]
+        RGB_tup = list(map(roundfloat, RGB_vector[ind]))  # round the RGB values
         RGB_code = str(RGB_tup[0]) + ',' + str(RGB_tup[1]) + ',' + str(RGB_tup[2])
         prot_PSMint_index[prot].append(RGB_code)  # prot_expressions_RGB[ind]
         print(prot, '-', prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
