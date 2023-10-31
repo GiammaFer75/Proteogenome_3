@@ -28,6 +28,7 @@ install_folder = 'C:/Bioinformatics/Proteogenome_v3/Proteogenome_Install'
 # ****************************************************************************** #
 
 
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('install_folder', None, 'The installation folder')
@@ -55,19 +56,22 @@ def main(argv):
 
     if FLAGS.project_dir:
         project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
-    else: project_dir_path = pathlib.Path.cwd()
+    else:
+        print(f'{FLAGS.project_dir} - NOT FOUND')
+        project_dir_path = pathlib.Path.cwd()
 
     # INPUT WITH JSON FILE
     if pg_utils.check_input_json(project_dir_path):
         pg_install_folder_path = pathlib.Path(install_folder) # Now the installation folder is static
         print('Input JSON file detected')
+        print(f'Project Directory : {project_dir_path}')
         pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, \
         peptides_table_path, species = pg_utils.input_json(project_dir_path)
         #print('PATH - ',pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path, species )
     else:
-    # INPUT WITH FLAGS
+        # INPUT WITH FLAGS
         if not FLAGS.install_folder:
-            pg_install_folder_path = pathlib.Path(install_folder) # Now the installation folder is static
+            pg_install_folder_path = pathlib.Path(install_folder)               # Now the installation folder is static
 
         pogo_windows_exe_path = pathlib.Path(FLAGS.pogo_windows_exe)            # PoGo Executable
         protein_FASTA_seq_path = pathlib.Path(FLAGS.protein_FASTA_seq)          # FASTA protein sequences
@@ -79,18 +83,17 @@ def main(argv):
         else: protein_GTF_annots_path = None
         peptides_table_path = pathlib.Path(FLAGS.peptides_table)                # Peptides Input Table
 
-        species = FLAGS.species
+        species = FLAGS.species                                                 # Species to process
 
     print(f'Install folder - {pg_install_folder_path}')
 
-    print(project_dir_path)
-    print(pogo_windows_exe_path)
-    print(protein_FASTA_seq_path)
-    print(protein_GFF3_annots_path)
-    print(protein_GTF_annots_path)
-    print(peptides_table_path)
-    print(f'\n{species}\n')
-
+    print('species                  - ',species)
+    print('project_dir_path         - ',project_dir_path)
+    print('pogo_windows_exe_path    - ',pogo_windows_exe_path)
+    print('protein_FASTA_seq_path   - ',protein_FASTA_seq_path)
+    print('protein_GFF3_annots_path - ',protein_GFF3_annots_path)
+    print('protein_GTF_annots_path  - ',protein_GTF_annots_path)
+    print('peptides_table_path      - ',peptides_table_path)
 
     # GENERATE WORKING DIRECTORIES
     project_dir_path, pg_output_path, pg_data_structure_path, PoGo_input_path, PoGo_output_path = pg_utils.gen_dir_structure(project_dir_path)
@@ -106,7 +109,13 @@ def main(argv):
 
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
     FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)     # Upload protein FASTA sequences
-    annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)                   # Upload reference genome annotations
+    if protein_GTF_annots_path and not protein_GFF3_annots_path:                # Upload reference genome annotations
+        annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)
+    elif protein_GFF3_annots_path and not protein_GTF_annots_path:
+        annot_lst = pg_input.file_to_lst(protein_GFF3_annots_path)
+    else:
+        print('Please check your annotation file path')
+        exit
 
     uniprot_to_ensembl_acc=[]
     # CONVERT UniProt accession in Ensemble accession in protein_pep_index
@@ -121,7 +130,7 @@ def main(argv):
             f = open(pg_install_folder_path.joinpath('uniprot_to_ensembl_acc.json'), 'w')
             json.dump(uniprot_to_ensembl_acc, f)
             f.close()
-        # Conversion Table EXIST
+        # Conversion Table already EXIST
         else:
             print(f'Protein conversion JSON file - FOUND\nUpload converted codes')
             f = open(pg_install_folder_path.joinpath('uniprot_to_ensembl_acc.json'), 'r')
@@ -145,7 +154,21 @@ def main(argv):
         print(f'\npeptides_input_table converted in Ensembl\n--------------------')
         for i in peptides_input_table: print(i)
 
+        # GENERATE INDEXES - for homo sapiens
+        CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
+        pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format='gtf_compliant')
+
+        # PoGo version for humans
+        pogo_version = 'PoGo_windows_v1.0.0.exe'
+
+
     elif species == 'virus':
+
+        # GENERATE INDEXES - for virus
+        print('Generate indexes for virus')
+        CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
+        pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format='not_gtf_compliant')
+
         # FASTA rectification
         FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_sub_str=[('lcl|NC_006273.2_prot_', '')])
         FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_patterns=[('gene=.*?\s', '')])
@@ -163,32 +186,30 @@ def main(argv):
 
         pg_output.make_sep_file(pg_data_structure_path.joinpath('CDS_matrix.txt'), CDS_matrix, sep='') # Save the CDS annotation rows in a separate matrix (ONLY for annotation not in GTF)
 
+        # PoGo version for virus
+        pogo_version = 'PoGo_windows_v1.2.3.exe'
+
     # GENERATE PoGo INPUT PEPTIDES FILE and TABLE
     PoGo_input_table_path = PoGo_input_path.joinpath('PoGo_Input_Table.txt')
     PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
 
-# ********************* REMAINING ROWS FROM PROTEOGENOME2
-    prot_CDS_index = {}  # Initialise dictionary for protein ---> CDS index
+    # prot_CDS_index = {}     # Initialise dictionary for protein ---> CDS index
     prot_PSMint_index = {}  # Initialise dictionary for protein ---> PSM - intensity - RGB intensity index
-# *********************
 
     # GENERATE INDEXES
-    CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
-    pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
+    # CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
+    # pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
 
     # SAVE INDEXES
     print('Save Data Structures')
-    # pg_output.make_sep_file(pg_data_structure_path.joinpath('CDS_matrix.txt'), CDS_matrix, sep='')
+    if species != 'homo sapiens': pg_output.make_sep_file(pg_data_structure_path.joinpath('CDS_matrix.txt'),
+                                                          CDS_matrix, sep='')
     pg_output.save_dict_list(prot_CDS_index, pg_data_structure_path.joinpath('prot_CDS_index.txt'), 'd')
     pg_output.save_dict_list(protein_pep_index, pg_data_structure_path.joinpath('protein_pep_index.txt'), 'd')
     pg_output.save_dict_list(pep_protein_index, pg_data_structure_path.joinpath('pep_protein_index.txt'), 'd')
     print('Data Structure SAVED\n')
 
-    # TESTING COMMANDS
-    pi.print_input(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GTF_annots_path, PoGo_input_table_path)
-    chdir(pogo_windows_exe_path)              # Go in the PoGo executable folder
-
-    PoGo_command =[pathlib.Path(pogo_windows_exe_path, 'PoGo_windows_v1.0.0.exe'),
+    PoGo_command =[pathlib.Path(pogo_windows_exe_path, pogo_version),
                    '-fasta', protein_FASTA_seq_path,
                    '-gtf', protein_GTF_annots_path,
                    '-in', PoGo_input_table_path]
@@ -201,16 +222,12 @@ def main(argv):
     pg_utils.move_files(PoGo_input_path, PoGo_output_path,filenames_patterns=['*.bed','*.gct',
                                                                               '*_unmapped.txt', '*_out.gtf'])
 
-    # subprocess.run(['dir'], shell=True)
-    # subprocess.run(['.\PoGo.exe', 'capture_output=True'])
-
-
     # GENERATE MAPS
 
     # Proteins MAP
     proteogenome_peptide_MAP_path = pg_output_path.joinpath('Proteins_MAP.bed')
     proteins_not_found = pg_output.gen_protein_track(protein_pep_index, prot_CDS_index,
-                                                     strand='GRCh38', bed_fn=proteogenome_peptide_MAP_path)
+                                                     species=species, bed_fn=proteogenome_peptide_MAP_path)
     print(f'^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPROTEINS NOT FOUND\n{proteins_not_found}\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
     # Peptides MAP
@@ -227,8 +244,6 @@ def main(argv):
         proteogenome_PTM_MAP_path = pg_output_path.joinpath('PTMs_MAP.bed')
         print(f'Path for the PTM MAP ---- > {PoGo_PTM_map_path}')
         dp.filter_peptides(PoGo_PTM_map_table, pep_protein_index, prot_CDS_index, out_file_name=proteogenome_PTM_MAP_path)
-
-
 
 
 if __name__ == '__main__':
