@@ -26,6 +26,7 @@ def file_to_lst(file_name, remove_last_row=False):
     file_in_lst=file_hand.read().splitlines()
     file_hand.close()
 
+    # if file_in_lst[:-1] == '': file_in_lst = file_in_lst[:-1]
     if (remove_last_row == True): file_in_lst = file_in_lst[:-1]  # Remove the last row
     return file_in_lst
 
@@ -108,7 +109,7 @@ def load_input_table(filename_path, sep='\t'):
 
         filename = pathlib.PurePath(filename_path).name  # Extract only the filename
         file_extension= filename.split('.')[1]           # Isolate the file extension
-        if file_extension: print(f'Detected a {file_extension} file')
+        # if file_extension: print(f'Detected a {file_extension} file')
 
         input_tab = np.array([['', '', '', '', '']], dtype='object')
 
