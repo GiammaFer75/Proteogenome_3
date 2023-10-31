@@ -52,6 +52,7 @@ def make_sep_file(out_file_name, input_array, sep=''):
         number_of_columns = input_array.shape[1]
         for row in input_array:
             out_row = ''
+            t =False
             for col_ind, col_data in enumerate(row):
                 out_row += col_data
                 if (col_ind < number_of_columns): out_row += sep
@@ -83,7 +84,7 @@ def save_json_file(input_file_path, json_object):
     f = open(input_file_path, 'w')
     json.dump(json_object, f)
     f.close()
-def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
+def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
     """
     Version: 1.0
     Name History: protein_set_bed - protein_track (from Proteogenome 3) - gen_protein_track
@@ -112,19 +113,16 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
 
     strand_position = 0
     start_p, start_n, end_p, end_n = 0, 0, 0, 0
-    organism = ''
 
     # Define the array parser based on the organism
-    if 'NC_006273' in strand:                              ## HCMV herpes virus 5 ##
-        organism = 'virus'
+    if species == 'virus':                              ## HCMV herpes virus 5 ##
         chr_name = 'NC_006273.2'  # The chromosome name (only one in viruses) is always the same in the HCMV
         start_p, end_p = 0, 1
         start_n, end_n = 1, 0
         strand_position = 2
 
-    elif 'GRCh38' in strand:                                ## HOMO SAPIENS GRCh38 ##
+    elif species == 'homo sapiens':                                ## HOMO SAPIENS GRCh38 ##
         # print('Option under construction. Check how to manage chromosome name in Human annotations\FASTA')
-        organism = 'homo'
         start_p, end_p, start_n, end_n = 1, 2, 1, 2
         # start_p, end_p = 1, 2
         # start_n, end_n = 2, 1
@@ -149,7 +147,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
         # else:
         #     chromStart = CDS_block[-1][1]  # In the negative case the boundaries coordinates
         #     chromEnd = CDS_block[0][0]  # inverted their orders in the respective records
-
+        print(f'In otput - {protein} --> {CDS_block}')
         Strand = CDS_block[0][strand_position]  #
 
         if Strand == '+':  # If strand positive
@@ -159,23 +157,19 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
             chromStart = CDS_block[-1][start_n]  # In the negative case the boundaries coordinates
             chromEnd = CDS_block[0][end_n]  # inverted their orders in the respective records
 
-        print(prot_CDS_index[protein])
-        print(f'{chromStart} - {chromEnd}')
-
         # Score='1'
         tickStart = chromStart
         tickEnd = chromEnd
         blockCount = str(len(CDS_block))
 
-        itemRGB = prot_PSMint_index[protein][2]  # Fetch the protein intensity into the proper index
-        Score = str(prot_PSMint_index[protein][1])  # Set the Score column in the bed protein file
+        itemRGB = prot_PSMint_index[protein][2]         # Fetch the protein intensity into the proper index
+        Score = str(prot_PSMint_index[protein][1])      # Set the Score column in the bed protein file
         # to the total intensity of the current protein.
 
         blockSizes_str = ''
         blockStarts_str = ''
         print('CDSb', CDS_block)
         for CDS in CDS_block:
-            if organism == 'homo': chr_name = CDS[0] # For human genome the chromosome name is in the first position
 
             if Strand == '+':
                 CDS_start = CDS[start_p]
@@ -184,9 +178,16 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], strand='', b
                 CDS_start = CDS[start_n]
                 CDS_end = CDS[end_n]
 
-            blockSizes_str += str(int(abs(CDS_end - CDS_start))) + ','
-            blockStarts_str += str(int(abs(chromStart - CDS_start))) + ','
-        if organism == 'homo':
+            if species == 'virus':
+                blockSizes_str += str(int(abs(int(CDS_end) - int(CDS_start)))) + ','
+                blockStarts_str += str(int(abs(int(chromStart) - int(CDS_start)))) + ','
+
+            if species == 'homo sapiens':
+                chr_name = CDS[0] # For human genome the chromosome name is in the first position
+                blockSizes_str += str(int(abs(CDS_end - CDS_start))) + ','
+                blockStarts_str += str(int(abs(chromStart - CDS_start))) + ','
+
+        if species == 'homo sapiens':
             blockStarts_str = blockStarts_str.split(',')
             blockStarts_str = [x for x in blockStarts_str if x != '']
             if Strand == '-': blockStarts_str.reverse()
