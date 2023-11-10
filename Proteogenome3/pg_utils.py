@@ -4,12 +4,19 @@ import json
 import shutil
 import pathlib
 import requests
+import numpy as np
 
+from matplotlib import colors
+import matplotlib.pyplot as plt
+
+def roundfloat(x, pn=4):
+    return round(x, pn)
 
 def check_input_json(proteogenome_project_dir, proteogenome_input_json = 'proteogenome_input.json'):
     input_file = pathlib.Path(pathlib.PurePath(proteogenome_project_dir, f'./{proteogenome_input_json}'))
     print('Looking for - ', input_file)
     return input_file.is_file()
+
 def input_json(project_directory):
     """
     Version : 1.0
@@ -232,3 +239,151 @@ def UniProt2Ensembl(accession_lst, speces, isoforms=False, reqs_per_sec=15):
     return conversion_dict
 
 
+def generate_color_gradient(color_lst, reverse_gradient=False):
+    """
+    Version: 1.0
+
+    Name History: generate_color_gradient
+
+    This function generates a list of tuples of RGB codes converted as three floating numbers.
+    For each color in the input color_lst will be generated a colour fader block that goes from the previous colour
+    in the list toward the next.
+    All these colour fader blocks will be combined all together.
+    The output is a list of RGB codes that represent each colour point in the color_lst evenly faded.
+
+    ** MAIN FUNCTION ** ---> protein_PSM_int_index
+
+    INPUT  :  color_lst     List    List of strings with the colour names that will be compose the colour gradient
+                                    Example: ['black','gray','blue','green','yellow','red']
+    OUTPUT :
+    """
+
+    def colorFader(c1, c2, mix=0):  # fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
+        """
+        Version: 1.0
+
+        Name History: colorFader
+
+        ** MAIN FUNCTION ** ---> generate_color_gradient
+
+        This function generates an array that contains an RGB gradient from color1 to the color2.
+        The gradient is expressed in RGB codes.
+        INPUT :
+        OUTPUT:
+        """
+
+        c1 = np.array(colors.to_rgb(c1))
+        c2 = np.array(colors.to_rgb(c2))
+        return colors.to_rgb((1 - mix) * c1 + mix * c2)
+
+    def rgb_block(color1, color2, n_data_point):
+        col = []
+        for data_point in range(n_data_point):
+            col.append(colorFader(color1, color2, data_point / n))
+        return col
+
+    n = 30
+    color_blocks_lst = []
+    for ind, color in enumerate(color_lst):  # For each color in the C list generate a gradient
+        color_blocks_lst.append([color, color_lst[ind + 1]])
+        if ind == (len(color_lst) - 2): break
+    gradient = []
+    for block in color_blocks_lst:
+        gradient += rgb_block(block[0], block[1],
+                              n)  # Combine together all the color fader gradient for each color in the color_tuples
+    if reverse_gradient: gradient.reverse()
+
+    return gradient
+
+def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
+    """
+    Version: 2.0
+
+    Name History: exprlev_resc_RGB
+
+    For each protein, this function find the RGB codes for each intensity value
+    in the range of the intensities.
+    Returns two vctors one for the protein IDs and une for the RGB codes that represents
+    the relative intensities.
+    The two vectors are ordered by RGB codes from the brightest to the darkest color.
+
+    INPUT : RGB_scale   [List]  List of tuples with the RGB codes converted in real numbers
+                                and ordered in ascending order.
+
+    OUTPUT: proteins    [List]  Collection of protein IDs where the index of each ID is the index of
+                                its RGB code in RGB_vec.
+            RGB_vec     [List]  RGB codes in tuples.
+    """
+    PSM_inten_values = prot_PSMint_index.values()
+    inten_values = [int(x[1]) for x in PSM_inten_values]
+    print('\nExtraction of protein intensities\n', inten_values)
+
+    rescaled_values = []  # Intensities are converted to the index for the corresponding color code
+
+    max_int_vec = [0]  # Intensities sorted in descending order
+    proteins = []  # Protein IDs
+    int_scaled = []  # Indexes referring to the RGB codes vctor
+    RGB_vec = []  # RGB codes sorted in ascending order
+
+    insert_ind = 0
+    # print('\n')
+    # print('Number of proteins                             - ',
+    #       len(prot_pep_index.keys()))  # Number of proteins
+    # print('Number of intensities to convert in RGB tuples - ',
+    #       len(prot_pep_index.keys()))  # Number of intensities
+    # print('\n')
+
+    # Print the proteins with their intensities and RGB codes sorted descending
+    print(
+        'Protein Number\t-\tProtein Code\t-\tProtein intensity\t-\tPosition of RGB value\t-\tRGB Tuple')  # Must be the same
+    print('--------------\t \t------------\t \t-----------------\t \t---------------------\t \t---------')
+
+    # ************************************************************************* #
+    # Based on the level of intensity, find the relative index in the RGB_scale #
+    # The resulting RGB code will represent the relative protein intensity      #
+    # translated in the proper color code.                                      #
+
+    old_max = max(inten_values)
+    old_min = min(inten_values)
+    new_max = len(RGB_scale)
+    new_min = 0
+
+    for prot, PSM_intensity in prot_PSMint_index.items():
+        old_value = int(PSM_intensity[1])
+
+        NewValue = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
+        if NewValue == 0: NewValue = 1  # 0 values for the less intense proteins use to assign the higer intensity RGB code
+        # For this reason, force to 1
+        grather = False
+        for ind, val in enumerate(max_int_vec):  # Find the position of the current intensity
+            if old_value > val:  # in the intensities vector.
+                insert_ind = ind
+                grather = True
+                break
+
+        if not grather:  # If the current intensity is the SMALLEST intensty in the vector:
+            proteins.append(prot)  # - put this intensity in the last position of the vector.
+            max_int_vec.append(old_value)  # - update all the correnspondent vectors.
+            int_scaled.append(NewValue)
+            RGB_vec.append(RGB_scale[NewValue - 1])
+        else:
+            proteins.insert(insert_ind,
+                            prot)  # If the current intensity is AT LEAST greater than the smallest intensity in the vector:
+            max_int_vec.insert(insert_ind,
+                               old_value)  # - put this intensity in the right position in the vector.
+            int_scaled.insert(insert_ind,
+                              NewValue)  # - update all the correnspondent vectors in the same position.
+            RGB_vec.insert(insert_ind, RGB_scale[NewValue - 1])
+        rescaled_values.append(NewValue)
+
+    # ************************************************************************* #
+
+    # Print the content of the vectors used for the RGB assignment
+    prot_number = 0
+    for i in range(0, len(max_int_vec[:-1])):
+        RGB = list(map(roundfloat, RGB_scale[int_scaled[i] - 1]))
+        print(
+            f'    {prot_number}\t\t-\t     {proteins[i]}\t-\t      {max_int_vec[i]}       \t-\t         {int_scaled[i] - 1}       \t-\t{RGB}   ')
+        # print(f'\t\t\t\t\t\t\t\t\t{RGB_vec[i]}')
+        prot_number += 1
+    return proteins, RGB_vec
