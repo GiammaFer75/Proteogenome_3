@@ -3,9 +3,9 @@ from Proteogenome3 import pg_indexes as pg_i
 import json
 
 
-def make_sep_file(out_file_name, input_array, sep=''):
+def make_sep_file(out_file_name, input_array, sep='', escape_row=''):
     """
-    Version: 1.0
+    Version: 1.1
     Name History: make_tab_file - make_sep_file
 
     This function creates a file from an input list or an np.array made of strings.
@@ -51,13 +51,14 @@ def make_sep_file(out_file_name, input_array, sep=''):
     if 'numpy.ndarray' in str(type(input_array)):                   # NUMPY np.array
         number_of_columns = input_array.shape[1]
         for row in input_array:
-            out_row = ''
-            t =False
-            for col_ind, col_data in enumerate(row):
-                out_row += col_data
-                if (col_ind < number_of_columns): out_row += sep
-            out_row += '\n'
-            out_file_hand.write(out_row)
+            if row[0] != escape_row: # If the first column is '' then escape the row
+                out_row = '\t'.join(list(row)) + '\n'
+                # t =False
+                # for col_ind, col_data in enumerate(row):
+                #     out_row += col_data
+                #     if (col_ind < number_of_columns): out_row += sep
+                # out_row += '\n'
+                out_file_hand.write(out_row)
         print('3 - NUMPY np.array')
 
     out_file_hand.close()
