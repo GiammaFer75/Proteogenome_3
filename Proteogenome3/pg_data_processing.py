@@ -198,9 +198,9 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
 
     # Check the type of data in the first position of the CDS array
     p_code = list(prot_CDS_index.items())[0][1] # Extract the first CDS record
-    print(f'p_code - {p_code}')
+    # print(f'p_code - {p_code}')
     first_cds = p_code[0]
-    print(f'first_cds - {first_cds}')
+    # print(f'first_cds - {first_cds}')
     cpo, cpt = None, None
     if first_cds[0].replace('.','').isdigit():
         cpo, cpt = 0, 2   # For virus there is no chr number
@@ -224,33 +224,90 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
     ##########################################################################
 
     for pep_row_index, peptide_row in enumerate(coord_pep_strand):  # Iterate over the PoGo peptide map
-        peptide_coord_1 = int(peptide_row[0])  # Fetch peptide genomic coordinates
+
+        # print('\n\n----------------------------------------------------------')
+        # print(f'{pep_row_index} - {peptide_row}\n')
+        break_protein_loop = False     # Flag to stop searching the mapping CDS among the proteins
+        peptide_coord_1 = int(peptide_row[0])                       # Fetch peptide genomic coordinates
         peptide_coord_2 = int(peptide_row[1])
         peptide_sequence = peptide_row[2]
         if '(' in peptide_sequence:
             peptide_sequence = re.sub('\(.*\)', '', peptide_sequence)
         peptide_strand = peptide_row[3]
-        peptide_to_protein = pep_prot_index[peptide_sequence]   # Fetch the set of proteins where
-                                                                # the peptide has been found.
+        peptide_to_protein = pep_prot_index[peptide_sequence]  # Fetch the set of proteins where the peptide has been found.
 
         # ---------- COORDINATES COMPARISON ---------- #
 
         for protein in peptide_to_protein:  # Iterate the set of protein
+            if break_protein_loop: break
             try:
                 CDS_block = allowed_genomic_space[protein]  # Fetch the genomic coordinates of the CDS of the protein where the peptide has been found.
-                for CDS in CDS_block:
-                    CDS_coord_1 = CDS[0]
-                    CDS_coord_2 = CDS[1]
-                    if peptide_strand == '+':
-                        if (peptide_coord_1 < CDS_coord_1) and (
-                                peptide_coord_2 > CDS_coord_2):  # INVALID genomic coordinates
-                            try:
-                                PoGo_peptides=np.delete(PoGo_peptides,pep_row_index,0)     # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-                                # PoGo_peptides[pep_row_index, 0] = ''
-                            except:
-                                print('Invalid row index -----> ', PoGo_peptides.shape, '-', pep_row_index)
-            except:
+
+                if CDS_block:
+                    if '-' in CDS_block[0]: CDS_block.reverse() # For proteins negative stranded, reorder the CDS in a positive strand
+
+                print(f'CDS_block -- {CDS_block}')
+
+                cds_block_length = len(CDS_block)
+                cds_block_index=0
+                match_start=True
+                match_end=True
+                while cds_block_index < cds_block_length:    # Iterate over the block of CDS of the current protein
+                    current_cds = CDS_block[cds_block_index] # Extract a CDS from the block of CDS of the current protein
+                    cds_coord_1 = current_cds[0]
+                    cds_coord_2 = current_cds[1]
+                    # Order the coordinates in a positive strand way
+                    if cds_coord_1 > cds_coord_2: cds_coord_1, cds_coord_2 = cds_coord_2, cds_coord_1
+                    prev_cds_start = 0
+                    next_cds_start = 0
+                    prev_cds_end = 0
+                    next_cds_end = 0
+
+                    # Check the peptide START coordinate #
+                    if peptide_coord_1 < cds_coord_1:
+                        if cds_block_index == 0:   # If it is the first CDS of the block there are no coordinates before it
+                            match_start = False
+                        else:
+                            prev_cds_start = CDS_block[cds_block_index-1][0]
+                            prev_cds_end = CDS_block[cds_block_index-1][1]
+                            if (peptide_coord_1 < prev_cds_start) or (peptide_coord_1 > prev_cds_end):
+                                match_start = False
+                            else:
+                                match_start = True
+                    if peptide_coord_2 > cds_coord_2:
+                        if cds_block_index == cds_block_length: # If it is the last CDS of the block there are no coordinates after it.
+                            match_end = False
+                        else:
+                            if (cds_block_index+1 <= cds_block_length): # Look for the next CDS coordinates
+                                next_cds_start = CDS_block[cds_block_index+1][0]
+                                next_cds_end = CDS_block[cds_block_index+1][1]
+                                if (peptide_coord_2 < next_cds_start) or (peptide_coord_2 > next_cds_end):
+                                    match_end = False                   # Peptide out of range
+                                else:
+                                    match_end = True
+                            else:
+                                match_end = False                       # Peptide out of range for no more CDS to check.
+                    # OUTPUT DISPLAY
+                    # print(f'CDS {cds_block_index}')
+                    # print(f'{prev_cds_start} - {prev_cds_end} -- [{cds_coord_1},{cds_coord_2}] -- {next_cds_start} - {next_cds_end}')
+                    # print(f'prev_cds_start = {prev_cds_start}\nnext_cds_start = {next_cds_start}\nprev_cds_end = {prev_cds_end}\nnext_cds_end = {next_cds_end}')
+                    # print(f'\n\nmatch_start = {match_start}\nmatch_end = {match_end}\n')
+
+                    if match_start and match_end:
+                        break_protein_loop = True
+                        break # The peptides maps CORRECTLY on the current protein.
+
+                    cds_block_index += 1
+
+            except Exception as error_message:
+                import traceback
+                traceback.print_exc()
+                print(error_message)
                 print(f'Protein {protein} NOT FOUND. Genomic coordinates for this position of the peptide in the genome skipped.')
+
+        if (match_start==False) or (match_end==False):
+                    PoGo_peptides[pep_row_index,0] = '' # Empty field means do not consider the peptide
+                    # PoGo_peptides = np.delete(PoGo_peptides, pep_row_index,0) # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
     # print('PoGo_peptides')
     # print(PoGo_peptides)
 
