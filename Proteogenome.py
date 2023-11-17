@@ -1,5 +1,4 @@
 #!usr/bin/python3
-import os
 
 from Proteogenome3 import pg_indexes as pg_i
 from Proteogenome3 import pg_input
@@ -12,13 +11,11 @@ from absl import app
 from absl import flags
 
 import subprocess
-from os import chdir, makedirs
 
 import shutil
 import pathlib
 import json
 
-from Test_PoGo_absl_subprocess import printinput as pi
 
 # ****************************************************************************** #
 #                               PATHS DEFINITION                                 #
@@ -53,12 +50,15 @@ def main(argv):
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
     print("START PROTEOGENOME".center(shutil.get_terminal_size().columns))
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
-
-    if FLAGS.project_dir:
-        project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
-    else:
-        print(f'{FLAGS.project_dir} - NOT FOUND')
-        project_dir_path = pathlib.Path.cwd()
+# DEBUG Virus
+#     project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test4_HCMV/")
+# DEBUG Humans
+    project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test3_human/")
+    # if FLAGS.project_dir:
+    #     project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
+    # else:
+    #     print(f'{FLAGS.project_dir} - NOT FOUND')
+    #     project_dir_path = pathlib.Path.cwd()
 
     # INPUT WITH JSON FILE
     if pg_utils.check_input_json(project_dir_path):
@@ -69,7 +69,7 @@ def main(argv):
         peptides_table_path, species = pg_utils.input_json(project_dir_path)
         #print('PATH - ',pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path, species )
     else:
-        # INPUT WITH FLAGS
+    # INPUT WITH FLAGS
         if not FLAGS.install_folder:
             pg_install_folder_path = pathlib.Path(install_folder)               # Now the installation folder is static
 
@@ -108,6 +108,7 @@ def main(argv):
     print("UPLOAD INPUT FILES".center(shutil.get_terminal_size().columns))
 
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
+
     FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)     # Upload protein FASTA sequences
     if protein_GTF_annots_path and not protein_GFF3_annots_path:                # Upload reference genome annotations
         annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)
@@ -193,6 +194,9 @@ def main(argv):
     PoGo_input_table_path = PoGo_input_path.joinpath('PoGo_Input_Table.txt')
     PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
 
+    # Update the peptides with their rgb intensities
+    peptides_input_table = dp.add_pep_rgb_inten(peptides_input_table)
+    
     # prot_CDS_index = {}     # Initialise dictionary for protein ---> CDS index
     prot_PSMint_index = {}  # Initialise dictionary for protein ---> PSM - intensity - RGB intensity index
 
@@ -235,7 +239,9 @@ def main(argv):
     PoGo_peptide_map_table = pg_input.load_generic_table(PoGo_peptide_map_path)
     proteogenome_peptide_MAP_path = pg_output_path.joinpath('Peptides_MAP.bed')
     print(f'Path for the peptide MAP ---- > {proteogenome_peptide_MAP_path}')
-    dp.filter_peptides(PoGo_peptide_map_table, pep_protein_index, prot_CDS_index,out_file_name=proteogenome_peptide_MAP_path)
+    dp.filter_peptides(peptides_input_table, PoGo_peptide_map_table,
+                       pep_protein_index, prot_CDS_index,
+                       ptm = False, out_file_name=proteogenome_peptide_MAP_path)
 
     # PTMs MAP
     PoGo_PTM_map_path = PoGo_output_path.joinpath('PoGo_Input_Table_ptm.bed')
@@ -243,7 +249,9 @@ def main(argv):
         PoGo_PTM_map_table = pg_input.load_generic_table(PoGo_PTM_map_path)
         proteogenome_PTM_MAP_path = pg_output_path.joinpath('PTMs_MAP.bed')
         print(f'Path for the PTM MAP ---- > {PoGo_PTM_map_path}')
-        dp.filter_peptides(PoGo_PTM_map_table, pep_protein_index, prot_CDS_index, out_file_name=proteogenome_PTM_MAP_path)
+        dp.filter_peptides(peptides_input_table, PoGo_PTM_map_table,
+                           pep_protein_index, prot_CDS_index,
+                           ptm = True, out_file_name=proteogenome_PTM_MAP_path)
 
 
 if __name__ == '__main__':
