@@ -118,9 +118,10 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
     # Define the array parser based on the organism
     if species == 'virus':                              ## HCMV herpes virus 5 ##
         chr_name = 'NC_006273.2'  # The chromosome name (only one in viruses) is always the same in the HCMV
-        start_p, end_p = 0, 1
-        start_n, end_n = 1, 0
+        start_p, end_p, start_n, end_n = 0, 1, 1, 0
+        # start_n, end_n = 1, 0
         strand_position = 2
+        b1, b2 = 0, 2   # boundaries of the slice in the CDS for the coordinates
 
     elif species == 'homo sapiens':                                ## HOMO SAPIENS GRCh38 ##
         # print('Option under construction. Check how to manage chromosome name in Human annotations\FASTA')
@@ -128,6 +129,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
         # start_p, end_p = 1, 2
         # start_n, end_n = 2, 1
         strand_position = 3
+        b1, b2 = 1, 3  # boundaries of the slice in the CDS for the coordinates
 
     BED_rows = []
     prot_row = ''
@@ -140,8 +142,6 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
             proteins_not_found.append(protein)
             continue
 
-        # Strand = CDS_block[0][2]  # The strand is in the third position of the first CDS features record
-        #
         # if Strand == '+':  # If strand positive
         #     chromStart = CDS_block[0][0]  # Chromosome Start is in the first position of the first record
         #     chromEnd = CDS_block[-1][1]  # Chromosome End is in the second position of the last record
@@ -149,22 +149,40 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
         #     chromStart = CDS_block[-1][1]  # In the negative case the boundaries coordinates
         #     chromEnd = CDS_block[0][0]  # inverted their orders in the respective records
         print(f'In otput - {protein} --> {CDS_block}')
-        Strand = CDS_block[0][strand_position]  #
+        strand = CDS_block[0][strand_position]  #
 
-        if Strand == '+':  # If strand positive
-            chromStart = CDS_block[0][start_p]  # Chromosome Start is in the first position of the first record
-            chromEnd = CDS_block[-1][end_p]  # Chromosome End is in the second position of the last record
-        else:
-            chromStart = CDS_block[-1][start_n]  # In the negative case the boundaries coordinates
-            chromEnd = CDS_block[0][end_n]  # inverted their orders in the respective records
+# +++++++++++++++++++++++++++ Working CDS - START END +++++++++++++++++++++++++++ #
+        # if strand == '+':  # If strand positive
+        #     chromStart = CDS_block[0][start_p]  # Chromosome Start is in the first position of the first record
+        #     chromEnd = CDS_block[-1][end_p]  # Chromosome End is in the second position of the last record
+        # else:
+        #     chromStart = CDS_block[-1][start_n]  # In the negative case the boundaries coordinates
+        #     chromEnd = CDS_block[0][end_n]  # inverted their orders in the respective records
+        #
+        # if chromStart > chromEnd: chromStart, chromEnd = chromEnd, chromStart
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# ///////////////////  NEW chr - STAR END  \\\\\\\\\\\\\\\\\\\ #
+        chromStart = min(CDS_block[0][b1:b2])
+        chromEnd = max(CDS_block[-1][b1:b2])
+        if chromStart > chromEnd:               # Means that the CDS_block is ordered in descending order
+            CDS_block.reverse()                     # Reorder the CDS_block in ascending order
+            chromStart = min(CDS_block[0][b1:b2])   # Redefine the Start and End of the protein
+            chromEnd = max(CDS_block[-1][b1:b2])
 
-        # Score='1'
+# ///////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ #
         tickStart = chromStart
         tickEnd = chromEnd
+        # if strand == '-':
+        #     tickStart = chromEnd
+        #     tickEnd = chromStart
+        # else:
+        #     tickStart = chromStart
+        #     tickEnd = chromEnd
+
         blockCount = str(len(CDS_block))
 
         itemRGB = prot_PSMint_index[protein][2]         # Fetch the protein intensity into the proper index
-        Score = str(prot_PSMint_index[protein][1])      # Set the Score column in the bed protein file
+        score = str(prot_PSMint_index[protein][1])      # Set the Score column in the bed protein file
         # to the total intensity of the current protein.
 
         blockSizes_str = ''
@@ -172,18 +190,25 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
         print('CDSb', CDS_block)
         for CDS in CDS_block:
 
-            if Strand == '+':
-                CDS_start = CDS[start_p]
-                CDS_end = CDS[end_p]
-            else:
-                CDS_start = CDS[start_n]
-                CDS_end = CDS[end_n]
+# +++++++++++++++++ Working CDS - START END +++++++++++++++++ #
+#             if strand == '+':
+#                 CDS_start = CDS[start_p]
+#                 CDS_end = CDS[end_p]
+#             else:
+#                 CDS_start = CDS[start_n]
+#                 CDS_end = CDS[end_n]
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+#                     NEW CDS - START END                     #
+
+            CDS_start = min(CDS[b1:b2])
+            CDS_end = max(CDS[b1:b2])
+#                                                             #
 
             if species == 'virus':
-                blockSizes_str += str(int(abs(int(CDS_end) - int(CDS_start)))) + ','
-                blockStarts_str += str(int(abs(int(chromStart) - int(CDS_start)))) + ','
+                blockSizes_str += str(abs(int(CDS_end) - int(CDS_start))) + ','
+                blockStarts_str += str(abs(int(chromStart) - int(CDS_start))) + ','
 
-            if species == 'homo sapiens':
+            elif species == 'homo sapiens':
                 chr_name = CDS[0] # For human genome the chromosome name is in the first position
                 blockSizes_str += str(int(abs(CDS_end - CDS_start))) + ','
                 blockStarts_str += str(int(abs(chromStart - CDS_start))) + ','
@@ -191,13 +216,15 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
         if species == 'homo sapiens':
             blockStarts_str = blockStarts_str.split(',')
             blockStarts_str = [x for x in blockStarts_str if x != '']
-            if Strand == '-': blockStarts_str.reverse()
+            # if strand == '-': blockStarts_str.reverse()
             blockStarts_str = ','.join(blockStarts_str)
 
             blockSizes_str = blockSizes_str.split(',')
             blockSizes_str = [x for x in blockSizes_str if x != '']
-            if Strand == '-': blockSizes_str.reverse()
+            # if strand == '-': blockSizes_str.reverse()
             blockSizes_str = ','.join(blockSizes_str)
+
+
 
         if type(CDS_start) == float:        # For the genomes manipulated with pd.DataFrame the coordinates are floats NOT str
             tickStart = str(int(tickStart))
@@ -210,16 +237,16 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
         # chromStart      - {type(chromStart)}\n
         # chromEnd        - {type(chromEnd)}\n
         # protein         - {type(protein)}\n
-        # Score           - {type(Score)}\n
-        # Strand          - {type(Strand)}\n
+        # Score           - {type(score)}\n
+        # Strand          - {type(strand)}\n
         # tickStart       - {type(tickStart)}\n
         # tickEnd         - {type(tickEnd)}\n
         # itemRGB         - {type(itemRGB)}\n
         # blockCount      - {type(blockCount)}\n
         # blockSizes_str  - {type(blockSizes_str)}\n
         # blockStarts_str - {type(blockStarts_str)}\n""")
-        prot_row += (chr_name + '\t' + chromStart + '\t' + chromEnd + '\t' + protein + '\t' + Score + '\t' +
-                     Strand + '\t' + tickStart + '\t' + tickEnd + '\t' + itemRGB + '\t' + blockCount + '\t' +
+        prot_row += (chr_name + '\t' + str(chromStart) + '\t' + str(chromEnd) + '\t' + protein + '\t' + score + '\t' +
+                     strand + '\t' + tickStart + '\t' + tickEnd + '\t' + itemRGB + '\t' + blockCount + '\t' +
                      blockSizes_str + '\t' + blockStarts_str + '\n')
 
         print(prot_row)
