@@ -144,9 +144,48 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
 
     return peptide_tab
 
+def add_pep_rgb_inten(peptides_input_table, color_gradient=['blue','cyan','lime','yellow','red']):
+    """
+    Version: 1.0
+    Name History: add_pep_rgb_inten
 
+    This function adds to each input peptide the respective RGB codes corresponding to the intensity of the peptide.
+    :param peptides_input_table:
+    :return:
+    """
 
-def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name=''):
+    int2rgb_column = np.zeros((peptides_input_table.shape[0],1)) # The column to add for storage the conversion peptides intensity to RGB codes
+    peptides_input_table = np.hstack((peptides_input_table, int2rgb_column))
+    peptide_intensity_vector = list(map(int, peptides_input_table[:,4]))  # Select the peptide intensities column
+    print(f'\nPeptide Intensity Vector\n------------------------\n')
+    RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)
+    peptide_intensity_rgb = np.empty((0,3), dtype=object) # The three columns store R - G - B values respectively
+
+    old_max = max(peptide_intensity_vector)
+    old_min = min(peptide_intensity_vector)
+    new_max = len(RGB_tup)
+    new_min = 0
+
+    for intensity_ind, peptide_intensity in enumerate(peptide_intensity_vector):
+        old_value = int(peptide_intensity)
+
+        int2rgb_index = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
+        # The 0 values for the less intense proteins/peptides use to assign the higer intensity RGB code. Then  force to 1
+        if int2rgb_index == 0: int2rgb = 1
+        elif int2rgb_index == new_max: int2rgb_index = new_max - 1 # Avoid to point to a tuple out of the RGB_tup vector
+        rgb_tuple_formatted = list(map(pg_utils.roundfloat, RGB_tup[int2rgb_index]))
+        rgb_tuple_formatted = list(map(str, rgb_tuple_formatted))
+        rgb_tuple_formatted = ','.join(rgb_tuple_formatted)
+        peptides_input_table[intensity_ind, 5] = rgb_tuple_formatted # Update the intensity with the equivalent RGB tuple
+        # Add the RGB tuple to the intensty conversion vector
+    #     rgb_tuple_formatted = list(map(pg_utils.roundfloat,RGB_tup[new_value]))
+    #     peptide_intensity_rgb = np.vstack((peptide_intensity_rgb, rgb_tuple_formatted))
+    #
+    #
+    # peptides_input_table = np.column_stack((peptides_input_table,peptide_intensity_rgb))
+    return peptides_input_table
+
+def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CDS_index, ptm, out_file_name=''):
     """
     Version: 2.0
     Name History: filter_peptides
@@ -239,7 +278,7 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
         # ---------- COORDINATES COMPARISON ---------- #
 
         for protein in peptide_to_protein:  # Iterate the set of protein
-            if break_protein_loop: break
+            # if break_protein_loop: break
             try:
                 CDS_block = allowed_genomic_space[protein]  # Fetch the genomic coordinates of the CDS of the protein where the peptide has been found.
 
@@ -278,7 +317,7 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
                         if cds_block_index == cds_block_length: # If it is the last CDS of the block there are no coordinates after it.
                             match_end = False
                         else:
-                            if (cds_block_index+1 <= cds_block_length): # Look for the next CDS coordinates
+                            if (cds_block_index+1 < cds_block_length): # Look for the next CDS coordinates
                                 next_cds_start = CDS_block[cds_block_index+1][0]
                                 next_cds_end = CDS_block[cds_block_index+1][1]
                                 if (peptide_coord_2 < next_cds_start) or (peptide_coord_2 > next_cds_end):
@@ -294,7 +333,16 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
                     # print(f'\n\nmatch_start = {match_start}\nmatch_end = {match_end}\n')
 
                     if match_start and match_end:
-                        break_protein_loop = True
+                        if not ptm: # Change the RGB only for the peptides not for PTMs
+                            # Fetch the RGB code for the intensity using the peptide sequence and the protein ID as keys
+                            matched_peptide = peptides_input_table[(peptides_input_table[:, 0]==protein) &
+                                                                         (peptides_input_table[:, 1]==peptide_sequence)]
+                            # Use the peptide intensity as SCORE of the current .bed feature
+                            score_peptide_intensity = matched_peptide[0, 4]
+                            # Use the intensity converted in RGB as RGB of the current .bed feature
+                            rgb_peptide_intensity = matched_peptide[0, 5]
+                            PoGo_peptides[pep_row_index, 4] = score_peptide_intensity
+                            PoGo_peptides[pep_row_index, 8] = rgb_peptide_intensity
                         break # The peptides maps CORRECTLY on the current protein.
 
                     cds_block_index += 1
@@ -311,12 +359,7 @@ def filter_peptides(PoGo_peptides, pep_prot_index, prot_CDS_index, out_file_name
     # print('PoGo_peptides')
     # print(PoGo_peptides)
 
-    if out_file_name:
-        # print(out_file_name)
-        # filtered_PoGo_peptides_file_path = pg_utils.create_path(out_file_name, add_prefix='proteogenome3_')
-        # print(filtered_PoGo_peptides_file_path)
-        pg_output.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
-
+    if out_file_name: pg_output.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
 
 
 
