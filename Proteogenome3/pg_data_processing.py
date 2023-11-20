@@ -66,7 +66,7 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     INPUT  :  peptide_tab              np.array   The table with proteomics data.
 
               PTMs_to_remove           List       Strings with the type of PTMs that must not be applied to the peptides.
-    OUTPUT :  peptides_PTMs_updated    List       he peptides sequence updated with the PTMs encoding (format in PoGo instruction)
+    OUTPUT :  peptide_tab
 
     References: PoGo - https://github.com/cschlaffner/PoGo
     """
@@ -107,7 +107,6 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
                  'nitrosyl': '(oxidation)'
                  }  # Any other post-translational modification
 
-    peptides_PTMs_updated = np.array([[]])
     PTM_position_pat = re.compile(r'.*?\([A-Z](.*?)\)')
 
     # Extract the column with the PTM encoding.
@@ -137,9 +136,6 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
                     peptide_PTM = peptide_PTM[:modification_position] + PTM_encoded + peptide_PTM[
                                                                                       modification_position:]  # Insert the PTM encoded in the peptide sequence
 
-                # except:
-                #    pass  # If you are on a peptide that reports 'None' in the modification field you have to skip the entire updating part
-
         peptide_tab[peptide_ind, 0] = peptide_PTM
 
     return peptide_tab
@@ -159,7 +155,6 @@ def add_pep_rgb_inten(peptides_input_table, color_gradient=['blue','cyan','lime'
     peptide_intensity_vector = list(map(int, peptides_input_table[:,4]))  # Select the peptide intensities column
     print(f'\nPeptide Intensity Vector\n------------------------\n')
     RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)
-    peptide_intensity_rgb = np.empty((0,3), dtype=object) # The three columns store R - G - B values respectively
 
     old_max = max(peptide_intensity_vector)
     old_min = min(peptide_intensity_vector)
@@ -177,12 +172,6 @@ def add_pep_rgb_inten(peptides_input_table, color_gradient=['blue','cyan','lime'
         rgb_tuple_formatted = list(map(str, rgb_tuple_formatted))
         rgb_tuple_formatted = ','.join(rgb_tuple_formatted)
         peptides_input_table[intensity_ind, 5] = rgb_tuple_formatted # Update the intensity with the equivalent RGB tuple
-        # Add the RGB tuple to the intensty conversion vector
-    #     rgb_tuple_formatted = list(map(pg_utils.roundfloat,RGB_tup[new_value]))
-    #     peptide_intensity_rgb = np.vstack((peptide_intensity_rgb, rgb_tuple_formatted))
-    #
-    #
-    # peptides_input_table = np.column_stack((peptides_input_table,peptide_intensity_rgb))
     return peptides_input_table
 
 def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CDS_index, ptm, out_file_name=''):
@@ -232,14 +221,12 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
         protein_set = np.concatenate((protein_set, protein_block))
     protein_set = np.unique(protein_set)  # Shrink the protein code collection to the unique codes
     print(f'protein_set - {protein_set}')
+
     ################### GENERATE THE ALLOWED GENOMIC SPACE ###################
     allowed_genomic_space = {}
-
     # Check the type of data in the first position of the CDS array
     p_code = list(prot_CDS_index.items())[0][1] # Extract the first CDS record
-    # print(f'p_code - {p_code}')
     first_cds = p_code[0]
-    # print(f'first_cds - {first_cds}')
     cpo, cpt = None, None
     if first_cds[0].replace('.','').isdigit():
         cpo, cpt = 0, 2   # For virus there is no chr number
@@ -276,14 +263,16 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
         peptide_to_protein = pep_prot_index[peptide_sequence]  # Fetch the set of proteins where the peptide has been found.
 
         # ---------- COORDINATES COMPARISON ---------- #
-
         for protein in peptide_to_protein:  # Iterate the set of protein
             # if break_protein_loop: break
             try:
                 CDS_block = allowed_genomic_space[protein]  # Fetch the genomic coordinates of the CDS of the protein where the peptide has been found.
 
                 if CDS_block:
-                    if '-' in CDS_block[0]: CDS_block.reverse() # For proteins negative stranded, reorder the CDS in a positive strand
+                    protStart = min(CDS_block[0][0:2])
+                    protmEnd = max(CDS_block[-1][0:2])
+                    if protStart > protmEnd:  # Means that the CDS_block is ordered in descending order
+                        CDS_block.reverse()  # Reorder the CDS_block in ascending order
 
                 print(f'CDS_block -- {CDS_block}')
 
@@ -295,7 +284,7 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
                     current_cds = CDS_block[cds_block_index] # Extract a CDS from the block of CDS of the current protein
                     cds_coord_1 = current_cds[0]
                     cds_coord_2 = current_cds[1]
-                    # Order the coordinates in a positive strand way
+                    # If in backward, then order the coordinates in a positive strand way
                     if cds_coord_1 > cds_coord_2: cds_coord_1, cds_coord_2 = cds_coord_2, cds_coord_1
                     prev_cds_start = 0
                     next_cds_start = 0
@@ -320,6 +309,9 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
                             if (cds_block_index+1 < cds_block_length): # Look for the next CDS coordinates
                                 next_cds_start = CDS_block[cds_block_index+1][0]
                                 next_cds_end = CDS_block[cds_block_index+1][1]
+                                # If in backward, then order the coordinates in a positive strand way
+                                if next_cds_start > next_cds_end:
+                                    next_cds_start, next_cds_end = next_cds_end, next_cds_start
                                 if (peptide_coord_2 < next_cds_start) or (peptide_coord_2 > next_cds_end):
                                     match_end = False                   # Peptide out of range
                                 else:
@@ -355,9 +347,6 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
 
         if (match_start==False) or (match_end==False):
                     PoGo_peptides[pep_row_index,0] = '' # Empty field means do not consider the peptide
-                    # PoGo_peptides = np.delete(PoGo_peptides, pep_row_index,0) # REMOVE THE PEPTIDE FROM THE PoGo PEPTIDE TABLE
-    # print('PoGo_peptides')
-    # print(PoGo_peptides)
 
     if out_file_name: pg_output.make_sep_file(out_file_name, PoGo_peptides, sep='\t')
 
