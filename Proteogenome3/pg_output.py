@@ -85,7 +85,8 @@ def save_json_file(input_file_path, json_object):
     f = open(input_file_path, 'w')
     json.dump(json_object, f)
     f.close()
-def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
+def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot_list=[],
+                      species='', strand_code = '', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
     """
     Version: 1.0
     Name History: protein_set_bed - protein_track (from Proteogenome 3) - gen_protein_track
@@ -104,7 +105,8 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
     """
 
     proteins_not_found = []
-    prot_PSMint_index = pg_i.protein_PSM_int_index(prot_pep_index)  # Generates the color code for protein intensities
+    prot_PSMint_index = pg_i.protein_PSM_int_index(prot_pep_index,
+                                                   peptides_input_table)  # Generates the color code for protein intensities
 
     if prot_list == []:
         prot_list = prot_pep_index.keys()
@@ -117,7 +119,7 @@ def gen_protein_track(prot_pep_index, prot_CDS_index, prot_list=[], species='', 
 
     # Define the array parser based on the organism
     if species == 'virus':                              ## HCMV herpes virus 5 ##
-        chr_name = 'NC_006273.2'  # The chromosome name (only one in viruses) is always the same in the HCMV
+        chr_name = strand_code  # The chromosome name (only one in viruses) is always the strand code in position 0,0 in the CDS_matrix
         start_p, end_p, start_n, end_n = 0, 1, 1, 0
         # start_n, end_n = 1, 0
         strand_position = 2
