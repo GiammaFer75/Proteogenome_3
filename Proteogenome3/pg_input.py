@@ -101,7 +101,7 @@ def load_input_table(filename_path, sep='\t'):
         on the genome browser.
         The format of this table is:
 
-                    Protein ID | Peptide Sequence | PTM | PSM | Peptide Intensity
+                    Protein ID | Peptide Sequence | PTM | PSM | Peptide Intensity | Protein Intensity
 
         INPUT :
         OUTPUT:
@@ -111,14 +111,15 @@ def load_input_table(filename_path, sep='\t'):
         file_extension= filename.split('.')[1]           # Isolate the file extension
         # if file_extension: print(f'Detected a {file_extension} file')
 
-        input_tab = np.array([['', '', '', '', '']], dtype='object')
+        input_tab = np.array([['', '', '', '', '', '']], dtype='object')
 
         fh = open(filename_path, 'r')
         for row in fh:
             row = row.split(sep)
             if row[-1] == '\n': row = np.array(row[:-1])         # Remove the \n from the last position in the array
             if '\n' in row[-1]: row[-1]=row[-1].replace('\n','') # Remove the \n if it is embedded in the last position
-            input_tab = np.concatenate([input_tab, [row]], axis=0)
+            if row[4] != 'nan':       #  Consider only the peptides with the intensity
+                input_tab = np.concatenate([input_tab, [row]], axis=0)
         fh.close()
         input_tab = input_tab[1:, :]  # Remove initialisation row
         return input_tab
