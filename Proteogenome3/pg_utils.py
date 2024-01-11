@@ -322,7 +322,7 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
 
     max_int_vec = [0]  # Intensities sorted in descending order
     proteins = []  # Protein IDs
-    int_scaled = []  # Indexes referring to the RGB codes vctor
+    int_scaled = []  # Indexes referring to the RGB codes vector
     RGB_vec = []  # RGB codes sorted in ascending order
 
     insert_ind = 0
@@ -338,10 +338,9 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
         'Protein Number\t-\tProtein Code\t-\tProtein intensity\t-\tPosition of RGB value\t-\tRGB Tuple')  # Must be the same
     print('--------------\t \t------------\t \t-----------------\t \t---------------------\t \t---------')
 
-    # ************************************************************************* #
-    # Based on the level of intensity, find the relative index in the RGB_scale #
-    # The resulting RGB code will represent the relative protein intensity      #
-    # translated in the proper color code.                                      #
+    # **************************************************************************************************************** #
+    # Based on the level of intensity, find the relative index in the RGB_scale                                        #
+    # The resulting RGB code will represent the relative protein intensity translated in the proper color code.        #
 
     old_max = max(inten_values)
     old_min = min(inten_values)
@@ -353,17 +352,17 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
 
         NewValue = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
         if NewValue == 0: NewValue = 1  # 0 values for the less intense proteins use to assign the higer intensity RGB code
-        # For this reason, force to 1
+                                        # For this reason, force to 1
         grather = False
-        for ind, val in enumerate(max_int_vec):  # Find the position of the current intensity
-            if old_value > val:  # in the intensities vector.
+        for ind, val in enumerate(max_int_vec): # Find the position of the current intensity in the intensities vector.
+            if old_value > val:
                 insert_ind = ind
                 grather = True
                 break
 
-        if not grather:  # If the current intensity is the SMALLEST intensty in the vector:
-            proteins.append(prot)  # - put this intensity in the last position of the vector.
-            max_int_vec.append(old_value)  # - update all the correnspondent vectors.
+        if not grather:                    # If the current intensity is the SMALLEST intensty in the vector:
+            proteins.append(prot)           # - put this intensity in the last position of the vector.
+            max_int_vec.append(old_value)   # - update all the correnspondent vectors.
             int_scaled.append(NewValue)
             RGB_vec.append(RGB_scale[NewValue - 1])
         else:
@@ -387,3 +386,16 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
         # print(f'\t\t\t\t\t\t\t\t\t{RGB_vec[i]}')
         prot_number += 1
     return proteins, RGB_vec
+
+def volcano_coloring(x, treshold, color_cluster = ['7,7,249', '174,171,171', '255,4,4']):
+    if x <= -treshold:
+        return color_cluster[0] # BLU
+    elif x >= treshold:
+        return color_cluster[2] # RED
+    else:
+        return color_cluster[1] # GREY
+
+def volcano_coloring_vectorised(x, treshold, color_cluster = ['7,7,249', '174,171,171', '255,4,4']):
+    rgb_volcano = np.where(x <= -treshold, color_cluster[0], np.where(x >= treshold, color_cluster[2],
+                                                                      color_cluster[1]))
+    return rgb_volcano
