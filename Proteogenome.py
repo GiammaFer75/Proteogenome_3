@@ -16,7 +16,7 @@ import shutil
 import pathlib
 import json
 
-
+import pandas as pd
 # ****************************************************************************** #
 #                               PATHS DEFINITION                                 #
 home_dir = 'C:/Bioinformatics/Proteogenome_v3/Test_PoGo_absl_subprocess/'
@@ -24,7 +24,7 @@ pogo_dir = 'C:/Bioinformatics/Proteogenome_v3/Test_PoGo_absl_subprocess/Proteoge
 install_folder = 'C:/Bioinformatics/Proteogenome_v3/Proteogenome_Install'
 # ****************************************************************************** #
 
-
+pep_treshold = 1 # This must be provided by the user
 
 FLAGS = flags.FLAGS
 
@@ -51,9 +51,10 @@ def main(argv):
     print("START PROTEOGENOME".center(shutil.get_terminal_size().columns))
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
 # DEBUG Virus
-#     project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test4_HCMV/")
+    project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test4_HCMV/")
 # DEBUG Humans
-    project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test3_human/")
+#     project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test3_human/")
+    project_dir_path = pathlib.Path("C:/Bioinformatics/Kish_project/Human_HCMV_1biorep_2techrep/")
     # if FLAGS.project_dir:
     #     project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
     # else:
@@ -121,6 +122,7 @@ def main(argv):
     uniprot_to_ensembl_acc=[]
     # CONVERT UniProt accession in Ensemble accession in protein_pep_index
     if species == 'homo sapiens':
+        strand_code = ''  # This is not to set for human
         input_protein_list = peptides_input_table[:,0]
         # Conversion table DO NOT EXISTS
         if not pg_utils.check_input_json(pg_install_folder_path, proteogenome_input_json = 'uniprot_to_ensembl_acc.json'):
@@ -141,12 +143,15 @@ def main(argv):
             f.close()
             uniprot_not_matched = [uni_pro_acc for uni_pro_acc in input_protein_list if uni_pro_acc not in uniprot_to_ensembl_acc_keys]
             if uniprot_not_matched:
-                print(f'Detected new UniProt accession codes not yet converted\n-----------------------\n{uniprot_not_matched}\nSTART conversion of unmatched codes')
-                uniprot_not_matched_converted = pg_utils.UniProt2Ensembl(accession_lst=uniprot_not_matched,
-                                                                         speces='homo sapiens')  # Dictionary of new UniProt -> Ensemble acc
-                uniprot_to_ensembl_acc.update(uniprot_not_matched_converted)
-                print('Update conversion table')
-                pg_output.save_json_file(pg_install_folder_path.joinpath('uniprot_to_ensembl_acc.json'), uniprot_to_ensembl_acc)
+                increment = 15
+                print(f'Detected new UniProt accession codes not yet converted\n-----------------------\n{uniprot_not_matched}\nSTART conversion of unmatched codes - {len(uniprot_not_matched)}')
+                for i in range(0, len(uniprot_not_matched), increment):
+                    uniprot_not_matched_block = uniprot_not_matched[i:i + increment]
+                    uniprot_not_matched_converted = pg_utils.UniProt2Ensembl(accession_lst=uniprot_not_matched_block,
+                                                                             speces='homo sapiens')  # Dictionary of new UniProt -> Ensemble acc
+                    uniprot_to_ensembl_acc.update(uniprot_not_matched_converted)
+                    print('Update conversion table')
+                    pg_output.save_json_file(pg_install_folder_path.joinpath('uniprot_to_ensembl_acc.json'), uniprot_to_ensembl_acc)
 
 
         # Update the UniProt accession with Ensemble accession (in GENCODE they use sequences reference to Ensembl)
@@ -169,7 +174,7 @@ def main(argv):
         print('Generate indexes for virus')
         CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
         pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format='not_gtf_compliant')
-
+        strand_code = CDS_matrix[0, 0]
         # FASTA rectification
         FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_sub_str=[('lcl|NC_006273.2_prot_', '')])
         FASTA_seq_lst = dc.rectify_rows(FASTA_seq_lst, target_patterns=[('gene=.*?\s', '')])
@@ -195,14 +200,10 @@ def main(argv):
     PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
 
     # Update the peptides with their rgb intensities
-    peptides_input_table = dp.add_pep_rgb_inten(peptides_input_table)
+    peptides_input_table = dp.add_pep_rgb_inten(peptides_input_table, treshold=pep_treshold)
     
     # prot_CDS_index = {}     # Initialise dictionary for protein ---> CDS index
     prot_PSMint_index = {}  # Initialise dictionary for protein ---> PSM - intensity - RGB intensity index
-
-    # GENERATE INDEXES
-    # CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
-    # pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format=annotations_format)
 
     # SAVE INDEXES
     print('Save Data Structures')
@@ -230,8 +231,9 @@ def main(argv):
 
     # Proteins MAP
     proteogenome_peptide_MAP_path = pg_output_path.joinpath('Proteins_MAP.bed')
-    proteins_not_found = pg_output.gen_protein_track(protein_pep_index, prot_CDS_index,
-                                                     species=species, bed_fn=proteogenome_peptide_MAP_path)
+    proteins_not_found = pg_output.gen_protein_track(peptides_input_table, protein_pep_index, prot_CDS_index,
+                                                     species=species, strand_code=strand_code,
+                                                     bed_fn=proteogenome_peptide_MAP_path)
     print(f'^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPROTEINS NOT FOUND\n{proteins_not_found}\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
     # Peptides MAP
@@ -253,6 +255,13 @@ def main(argv):
                            pep_protein_index, prot_CDS_index,
                            ptm = True, out_file_name=proteogenome_PTM_MAP_path)
 
+    # Save the peptide input table after all modifications
+    pep_input_table_df = pd.DataFrame(peptides_input_table)
+    pep_input_table_filename = pg_data_structure_path.joinpath('peptide_input_table_ap.xlsx')
+    pep_input_table_df.to_excel(pep_input_table_filename, index = False,
+                                header = ['Prot. Acc.', 'Pep. Seq.', 'PTM', 'PSM', 'Pep. Abund.',
+                                          'Prot. Abund.', 'Pep. Abund. RGB'])
+    #, 'Prot. Abund. RGB']
 
 if __name__ == '__main__':
     """
