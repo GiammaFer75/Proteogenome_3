@@ -85,12 +85,12 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
             None_position = modifications.index('None')  # Find the position of the last 'None' value.
             del modifications[None_position]  # Remove the last 'None' value.
 
-        for PTM in modifications:  # Iterate over the PTMs list. Because the PTMs could appear like that Example: [Oxidation M(6), Oxidation M(10), Oxidation M(1),  ...]
-            # we are interested only in the PTM type (in the example: 'Oxidation').
-            PTM_types.append(PTM.split()[
-                                 0])  # Splitting the original PTM and taking [0] we extract always the type (  Example of split result ['Oxidation', 'M(10)']  )
-        PTM_types = list(
-            set(PTM_types))  # Apply the unique (set) function for the list in order to have only one element for each PTM type.
+        for PTM in modifications:  # Iterate over the PTMs list. Because the PTMs could appear like that
+                                   # Example: [Oxidation M(6), Oxidation M(10), Oxidation M(1),  ...]
+                                   # we are interested only in the PTM type (in the example: 'Oxidation').
+            PTM_types.append(PTM.split()[0])  # Splitting the original PTM and taking [0] we extract always the type
+                                              # (  Example of split result ['Oxidation', 'M(10)']  )
+        PTM_types = list(set(PTM_types))  # Apply the unique (set) function to have only one element for each PTM type.
 
         for mod_type in PTMs_remove:  # Loop over the list of PTMs to exclude
             if (mod_type in PTM_types): PTM_types.remove(mod_type)  # Remove the PTM not desired
@@ -102,7 +102,7 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
 
     PTMs_code = {'phosphorylation': '(phospho)', 'phospho': '(phospho)','acetylation': '(acetyl)', 'acetyl': '(acetyl)',
                  'amidation': '(amidated)', 'oxidation': '(oxidation)', 'methylation': '(methyl)',
-                 'methyl': '(methyl)', 'ubiquitinylation': '(glygly; gg)', 'sulfation': '(sulfo)',
+                 'methyl': '(methyl)', 'ubiquitinylation': '(glygly; gg)', 'gg': '(glygly; gg)', 'sulfation': '(sulfo)',
                  'palmitoylation': '(palmitoyl)', 'formylation': '(formyl)', 'deamidation': '(deamidated)',
                  'nitrosyl': '(oxidation)'
                  }  # Any other post-translational modification
@@ -123,36 +123,38 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
             peptide_modification = peptide_row[1]  # From the row take only the peptide MODIFICATION
             if peptide_modification != 'None':
                 peptide_modification = peptide_modification.split()  # Split the peptide modification string in the two main components: Modification Type - Modification Position
-                modificatio_type = peptide_modification[0]  # Modification Type
+                modification_type = peptide_modification[0]  # Modification Type
 
                 # try:
-                modification_position = peptide_modification[
-                    1]  # Modification Position. Only for those modification other than 'None'
-                if (modificatio_type.lower() == apply_PTM.lower()):  # Find the specific PTM allowed to be applyed
+                modification_position = peptide_modification[1]
+                if (modification_type.lower() == apply_PTM.lower()):  # Find the specific PTM allowed to be applied
                     modification_position = int(PTM_position_pat.match(modification_position).group(1))
 
                     # modification_position = int(modification_position.split('(')[1].replace(')',''))  # Clean the Modification position. Example: in general modification position might appear like that M(10) and we want only '10'
-                    PTM_encoded = PTMs_code[modificatio_type.lower()]  # Translate the PTM name in the PoGo PTM name
-                    peptide_PTM = peptide_PTM[:modification_position] + PTM_encoded + peptide_PTM[
-                                                                                      modification_position:]  # Insert the PTM encoded in the peptide sequence
+                    # Translate the PTM name in the PoGo PTM name
+                    PTM_encoded = PTMs_code[modification_type.lower()]
+                    # Insert the PTM encoded in the peptide sequence
+                    peptide_PTM = peptide_PTM[:modification_position] + PTM_encoded + peptide_PTM[modification_position:]
 
         peptide_tab[peptide_ind, 0] = peptide_PTM
 
     return peptide_tab
 
-def add_pep_rgb_inten(peptides_input_table, color_gradient=['blue','cyan','lime','yellow','red']):
+def add_pep_rgb_inten(peptides_input_table, treshold, coloring_method = 'volcano',
+                      color_gradient=['blue','cyan','lime','yellow','red']):
     """
-    Version: 1.0
+    Version: 2.0
     Name History: add_pep_rgb_inten
 
-    This function adds to each input peptide the respective RGB codes corresponding to the intensity of the peptide.
+    This function adds to each input peptide the respective RGB codes corresponding to the abundance of the peptide.
+    A treshold of abundance variation is applied for the data
     :param peptides_input_table:
     :return:
     """
 
-    int2rgb_column = np.zeros((peptides_input_table.shape[0],1)) # The column to add for storage the conversion peptides intensity to RGB codes
-    peptides_input_table = np.hstack((peptides_input_table, int2rgb_column))
-    peptide_intensity_vector = list(map(int, peptides_input_table[:,4]))  # Select the peptide intensities column
+    # int2rgb_column = np.zeros((peptides_input_table.shape[0],1)) # The column to add for storage the conversion peptides intensity to RGB codes
+    # peptides_input_table = np.hstack((peptides_input_table, int2rgb_column))
+    peptide_intensity_vector = np.asarray(list(map(float, peptides_input_table[:,4])))  # Select the peptide intensities column
     print(f'\nPeptide Intensity Vector\n------------------------\n')
     RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)
 
@@ -161,17 +163,22 @@ def add_pep_rgb_inten(peptides_input_table, color_gradient=['blue','cyan','lime'
     new_max = len(RGB_tup)
     new_min = 0
 
-    for intensity_ind, peptide_intensity in enumerate(peptide_intensity_vector):
-        old_value = int(peptide_intensity)
+    if coloring_method == 'continuous_color_fade':
+        for intensity_ind, peptide_intensity in enumerate(peptide_intensity_vector):
+            old_value = peptide_intensity
+            int2rgb_index = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
+            # The 0 values for the less intense proteins/peptides use to assign the higer intensity RGB code. Then  force to 1
+            if int2rgb_index == 0: int2rgb = 1
+            elif int2rgb_index == new_max: int2rgb_index = new_max - 1 # Avoid to point to a tuple out of the RGB_tup vector
+            rgb_tuple_formatted = list(map(pg_utils.roundfloat, RGB_tup[int2rgb_index]))
+            rgb_tuple_formatted = list(map(str, rgb_tuple_formatted))
+            rgb_tuple_formatted = ','.join(rgb_tuple_formatted)
+            peptide_intensity_vector[intensity_ind] = rgb_tuple_formatted # Update the intensity vector with the RGB tuple
 
-        int2rgb_index = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
-        # The 0 values for the less intense proteins/peptides use to assign the higer intensity RGB code. Then  force to 1
-        if int2rgb_index == 0: int2rgb = 1
-        elif int2rgb_index == new_max: int2rgb_index = new_max - 1 # Avoid to point to a tuple out of the RGB_tup vector
-        rgb_tuple_formatted = list(map(pg_utils.roundfloat, RGB_tup[int2rgb_index]))
-        rgb_tuple_formatted = list(map(str, rgb_tuple_formatted))
-        rgb_tuple_formatted = ','.join(rgb_tuple_formatted)
-        peptides_input_table[intensity_ind, 5] = rgb_tuple_formatted # Update the intensity with the equivalent RGB tuple
+    elif coloring_method == 'volcano':
+        peptide_intensity_vector = pg_utils.volcano_coloring_vectorised(peptide_intensity_vector, treshold=treshold)
+
+    peptides_input_table = np.vstack([peptides_input_table.T, peptide_intensity_vector]).T
     return peptides_input_table
 
 def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CDS_index, ptm, out_file_name=''):
@@ -274,7 +281,7 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
                     if protStart > protmEnd:  # Means that the CDS_block is ordered in descending order
                         CDS_block.reverse()  # Reorder the CDS_block in ascending order
 
-                print(f'CDS_block -- {CDS_block}')
+                # print(f'CDS_block -- {CDS_block}')
 
                 cds_block_length = len(CDS_block)
                 cds_block_index=0
@@ -332,7 +339,7 @@ def filter_peptides(peptides_input_table, PoGo_peptides, pep_prot_index, prot_CD
                             # Use the peptide intensity as SCORE of the current .bed feature
                             score_peptide_intensity = matched_peptide[0, 4]
                             # Use the intensity converted in RGB as RGB of the current .bed feature
-                            rgb_peptide_intensity = matched_peptide[0, 5]
+                            rgb_peptide_intensity = matched_peptide[0, 6]
                             PoGo_peptides[pep_row_index, 4] = score_peptide_intensity
                             PoGo_peptides[pep_row_index, 8] = rgb_peptide_intensity
                         break # The peptides maps CORRECTLY on the current protein.
