@@ -183,12 +183,15 @@ def gen_protein_CDS_index(annotations, annot_format=''):
     return prot_CDS_index
 
 
-def protein_PSM_int_index(prot_pep_index,
-                          color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange', 'red']):
+def protein_PSM_int_index(prot_pep_index, peptides_input_table,
+                          quantitation_method = 'log2Fold-1', coloring_method = 'volcano',
+                          color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange', 'red']
+                          ):
     # def protein_PSM_int_index(color_gradient=['blue','cyan','lime','yellow']):
 
     """
     Version: 2.0
+
     Name History: protein_PSM_int_index
 
     This function creates the protein index for the PSM and intensities.
@@ -202,64 +205,83 @@ def protein_PSM_int_index(prot_pep_index,
         #  ------- MAIN --------
         #  protein_PSM_int_index
 
+    treshold_l2f = 0
     intensities = {}
 
-    max_intensity = 0
-    min_intensity = 0
+    max_intensity = np.min(peptides_input_table[:,5])
+    min_intensity = np.min(peptides_input_table[:,5])
 
     prot_PSMint_index = {}
-    for protein, pep_array in prot_pep_index.items():
-        PSM_sum = 0
-        inten_sum = 0
-        for pep_row in pep_array:
-            PSM_sum += int(pep_row[3])
-            inten_sum += int(pep_row[4])
-        prot_PSMint_index[protein] = [PSM_sum, inten_sum]
+    if 'log2Fold' in quantitation_method:
+        treshold_l2f = float(quantitation_method.split('-')[1])
+        sub_peptides_input_table = peptides_input_table[:, np.r_[0, 5]]
+        # sub_peptides_input_table = sub_peptides_input_table[abs(sub_peptides_input_table[:,1]) >= threshold_l2f]
+        prot_tup_set = [tuple(row) for row in sub_peptides_input_table]
+        prot_tup_set = list(set(prot_tup_set))
+        prot_tup_set = np.array(prot_tup_set, dtype = 'object')
 
-        if max_intensity < inten_sum: max_intensity = inten_sum
-        if min_intensity > inten_sum: min_intensity = inten_sum
+        prot_abun_float =  list(map(float, prot_tup_set[:, 1]))
+        prot_abundance = np.vstack([prot_tup_set[:, 0], prot_abun_float]).transpose()
+        for protid_abundance in prot_abundance:
+            prot_PSMint_index[protid_abundance[0]] = [1, protid_abundance[1]]
 
-    #print('Protein-Peptide Index - Protein-CDS Index')
-    #print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
+    elif quantitation_method == 'pas': # Protein Abundance = Peptides Abundance Sum
+        for protein, pep_array in prot_pep_index.items():
+            PSM_sum = 0
+            inten_sum = 0
+            for pep_row in pep_array:
+                PSM_sum += int(pep_row[3])
+                inten_sum += float(pep_row[4])
+            prot_PSMint_index[protein] = [PSM_sum, inten_sum]
 
-    RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
-    # ----------------------- #
-    # DRAW THE COLOR GRADIENT #
-    # ----------------------- #
-    # fig, ax = plt.subplots(figsize=(8, 5))
-    # ax.yaxis.set_visible(False)
-    # x_tick_locations=range(0,max_intensity-min_intensity,10)
-    # x_tick_labels=range(min_intensity,max_intensity,1000)
-    # plt.xticks(x_tick_locations, x_tick_labels)
-    # for x, colorRGB in enumerate(RGB_tup):
-    #     ax.axvline(x, color=colorRGB, linewidth=4)
-    # plt.show()
-    # ----------------------- #
-    print('Color gradient done\n+++++++++++++++++++\n ')
+            if max_intensity < inten_sum: max_intensity = inten_sum
+            if min_intensity > inten_sum: min_intensity = inten_sum
 
-    # PRINT THE RGB TUPLES FOR THE COLOR GRADIENT
-    print('RGB TUPLES\n----------')
-    rgbind = 0
-    for rgb in RGB_tup:
-        print(rgbind, '  -  ', round(rgb[0], 3), '-', round(rgb[1], 3), '-', round(rgb[2], 3))
-        rgbind += 1
 
-    # +++++++++++++++++++++++++++++++++++++++++++ #
-    #      Convert intensities in RGB codes       #
-    prot_vec, RGB_vector = pg_utils.exprlev_resc_RGB(RGB_tup, prot_PSMint_index)
-    # +++++++++++++++++++++++++++++++++++++++++++ #
+    if coloring_method == 'continuous_color_fade':
+        # print('Protein-Peptide Index - Protein-CDS Index')
+        # print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
 
-    # print(f'{len(prot_vec)} - {len(prot_CDS_index)}')
-    # print(prot_expressions_RGB)
-    # print(prot_CDS_index)
+        RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
+        # ----------------------- #
+        # DRAW THE COLOR GRADIENT #
+        # ----------------------- #
+        # fig, ax = plt.subplots(figsize=(8, 5))
+        # ax.yaxis.set_visible(False)
+        # x_tick_locations=range(0,max_intensity-min_intensity,10)
+        # x_tick_labels=range(min_intensity,max_intensity,1000)
+        # plt.xticks(x_tick_locations, x_tick_labels)
+        # for x, colorRGB in enumerate(RGB_tup):
+        #     ax.axvline(x, color=colorRGB, linewidth=4)
+        # plt.show()
+        # ----------------------- #
+        print('Color gradient done\n+++++++++++++++++++\n ')
 
-    # Update the dictionary of prot_CDS_index with the RGB intensities
-    print('\nUPDATING PROTEIN INDEX WITH RGB INTENSITIES\n-------------------------------------------')
-    ind = 0
-    for ind, prot in enumerate(prot_vec):
-        RGB_tup = list(map(pg_utils.roundfloat, RGB_vector[ind]))  # round the RGB values
-        RGB_code = str(RGB_tup[0]) + ',' + str(RGB_tup[1]) + ',' + str(RGB_tup[2])
-        prot_PSMint_index[prot].append(RGB_code)  # prot_expressions_RGB[ind]
-        print(prot, '-', prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
-        # ind+=1
+        # PRINT THE RGB TUPLES FOR THE COLOR GRADIENT
+        print('RGB TUPLES\n----------')
+        rgbind = 0
+        for rgb in RGB_tup:
+            print(rgbind, '  -  ', round(rgb[0], 3), '-', round(rgb[1], 3), '-', round(rgb[2], 3))
+            rgbind += 1
+
+        # +++++++++++++++++++++++++++++++++++++++++++ #
+        #      Convert intensities in RGB codes       #
+        prot_vec, RGB_vector = pg_utils.exprlev_resc_RGB(RGB_tup, prot_PSMint_index)
+        # +++++++++++++++++++++++++++++++++++++++++++ #
+
+        # Update the dictionary of prot_CDS_index with the RGB intensities
+        print('\nUPDATING PROTEIN INDEX WITH RGB INTENSITIES\n-------------------------------------------')
+        ind = 0
+        for ind, prot in enumerate(prot_vec):
+            RGB_tup = list(
+                map(pg_utils.roundfloat, RGB_vector[ind]))  # round the RGB values (3 of them in the RGB_vector)
+            RGB_code = str(RGB_tup[0]) + ',' + str(RGB_tup[1]) + ',' + str(RGB_tup[2])
+            prot_PSMint_index[prot].append(RGB_code)
+            print(prot, '-', prot_PSMint_index[prot][-1])  # prot_expressions_RGB[ind]
+            # ind+=1
+
+    elif coloring_method == 'volcano':
+        for prot, psm_int in prot_PSMint_index.items():
+            prot_PSMint_index[prot].append(pg_utils.volcano_coloring(psm_int[1], treshold=treshold_l2f))
+
     return prot_PSMint_index
