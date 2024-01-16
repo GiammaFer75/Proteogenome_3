@@ -46,6 +46,7 @@ flags.DEFINE_string('peptides_table', None, 'The table containing the peptides s
 
 def main(argv):
 
+    color_gradient=['blue', 'red']
     # ***** FLAGS DEFINITION ***** #
     print("-----------------------------------------------------".center(shutil.get_terminal_size().columns))
     print("START PROTEOGENOME".center(shutil.get_terminal_size().columns))
@@ -53,8 +54,11 @@ def main(argv):
 # DEBUG Virus
     project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test4_HCMV/")
 # DEBUG Humans
-#     project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test3_human/")
-    project_dir_path = pathlib.Path("C:/Bioinformatics/Kish_project/Human_HCMV_1biorep_2techrep/")
+    project_dir_path = pathlib.Path("C:/Bioinformatics/Proteogenome_v3/Proteogenome_test3_human/")
+    project_dir_path = pathlib.Path("C:/Bioinformatics/Kish_projects/Human_HCMV_1biorep_2techrep/")
+# DEBUG HCMV
+#     project_dir_path = pathlib.Path("C:/Bioinformatics/Kish_projects/HCMV_alone/")
+
     # if FLAGS.project_dir:
     #     project_dir_path = pathlib.Path(FLAGS.project_dir)                  # Project Directory
     # else:
@@ -66,8 +70,10 @@ def main(argv):
         pg_install_folder_path = pathlib.Path(install_folder) # Now the installation folder is static
         print('Input JSON file detected')
         print(f'Project Directory : {project_dir_path}')
+
+        species, coloring_method, quantitation_method, \
         pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, \
-        peptides_table_path, species = pg_utils.input_json(project_dir_path)
+        peptides_table_path = pg_utils.input_json(project_dir_path)
         #print('PATH - ',pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path, species )
     else:
     # INPUT WITH FLAGS
@@ -109,12 +115,15 @@ def main(argv):
     print("UPLOAD INPUT FILES".center(shutil.get_terminal_size().columns))
 
     peptides_input_table = pg_input.load_input_table(peptides_table_path)       # Upload peptides table
-
+    print('peptides_input_table - DONE')
     FASTA_seq_lst = pg_input.load_protein_FASTA_seq(protein_FASTA_seq_path)     # Upload protein FASTA sequences
+    print('FASTA_seq_lst - DONE')
     if protein_GTF_annots_path and not protein_GFF3_annots_path:                # Upload reference genome annotations
         annot_lst = pg_input.file_to_lst(protein_GTF_annots_path)
+        print('GTF annotation - DONE')
     elif protein_GFF3_annots_path and not protein_GTF_annots_path:
         annot_lst = pg_input.file_to_lst(protein_GFF3_annots_path)
+        print('GFF3 annotations - DONE')
     else:
         print('Please check your annotation file path')
         exit
@@ -163,7 +172,7 @@ def main(argv):
         # GENERATE INDEXES - for homo sapiens
         CDS_matrix, prot_CDS_index, protein_pep_index, pep_protein_index = \
         pg_i.initialise_indexes(protein_GTF_annots_path, peptides_input_table, annot_format='gtf_compliant')
-
+        print('--- Indexes Creation - COMPLETE ---')
         # PoGo version for humans
         pogo_version = 'PoGo_windows_v1.0.0.exe'
 
@@ -200,7 +209,10 @@ def main(argv):
     PoGo_input_table = pg_input.gen_PoGo_input_table(peptides_input_table, out_file_name=PoGo_input_table_path)
 
     # Update the peptides with their rgb intensities
-    peptides_input_table = dp.add_pep_rgb_inten(peptides_input_table, treshold=pep_treshold)
+    peptides_input_table = dp.add_pep_rgb_inten(peptides_input_table,
+                                                coloring_method = coloring_method,
+                                                treshold = pep_treshold,
+                                                color_gradient = color_gradient)
     
     # prot_CDS_index = {}     # Initialise dictionary for protein ---> CDS index
     prot_PSMint_index = {}  # Initialise dictionary for protein ---> PSM - intensity - RGB intensity index
@@ -231,9 +243,15 @@ def main(argv):
 
     # Proteins MAP
     proteogenome_peptide_MAP_path = pg_output_path.joinpath('Proteins_MAP.bed')
-    proteins_not_found = pg_output.gen_protein_track(peptides_input_table, protein_pep_index, prot_CDS_index,
-                                                     species=species, strand_code=strand_code,
-                                                     bed_fn=proteogenome_peptide_MAP_path)
+    proteins_not_found = pg_output.gen_protein_track(species = species,
+                                                     coloring_method = coloring_method,
+                                                     quantitation_method = quantitation_method,
+                                                     color_gradient = color_gradient,
+                                                     peptides_input_table = peptides_input_table,
+                                                     prot_pep_index = protein_pep_index,
+                                                     prot_CDS_index = prot_CDS_index,
+                                                     strand_code = strand_code,
+                                                     bed_fn = proteogenome_peptide_MAP_path)
     print(f'^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPROTEINS NOT FOUND\n{proteins_not_found}\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
     # Peptides MAP
