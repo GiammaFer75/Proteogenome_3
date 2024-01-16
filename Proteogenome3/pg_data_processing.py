@@ -141,7 +141,7 @@ def apply_PTMs_to_pep(peptide_tab, PTMs_to_remove=[]):
     return peptide_tab
 
 def add_pep_rgb_inten(peptides_input_table, treshold, coloring_method = 'volcano',
-                      color_gradient=['blue','cyan','lime','yellow','red']):
+                      color_gradient=['blue', 'red']): # ['blue','cyan','lime','yellow','red']
     """
     Version: 2.0
     Name History: add_pep_rgb_inten
@@ -164,17 +164,19 @@ def add_pep_rgb_inten(peptides_input_table, treshold, coloring_method = 'volcano
     new_min = 0
 
     if coloring_method == 'continuous_color_fade':
+        RGB_intensity_lst=[]
         for intensity_ind, peptide_intensity in enumerate(peptide_intensity_vector):
             old_value = peptide_intensity
             int2rgb_index = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
             # The 0 values for the less intense proteins/peptides use to assign the higer intensity RGB code. Then  force to 1
-            if int2rgb_index == 0: int2rgb = 1
-            elif int2rgb_index == new_max: int2rgb_index = new_max - 1 # Avoid to point to a tuple out of the RGB_tup vector
+            #if int2rgb_index == 0: int2rgb_index = 1
+            #elif int2rgb_index == new_max: int2rgb_index = new_max - 1 # Avoid to point to a tuple out of the RGB_tup vector
             rgb_tuple_formatted = list(map(pg_utils.roundfloat, RGB_tup[int2rgb_index]))
             rgb_tuple_formatted = list(map(str, rgb_tuple_formatted))
             rgb_tuple_formatted = ','.join(rgb_tuple_formatted)
-            peptide_intensity_vector[intensity_ind] = rgb_tuple_formatted # Update the intensity vector with the RGB tuple
-
+            RGB_intensity_lst.append(rgb_tuple_formatted)
+            # peptide_intensity_vector[intensity_ind] = rgb_tuple_formatted # Update the intensity vector with the RGB tuple
+        peptide_intensity_vector = np.asarray(RGB_intensity_lst)
     elif coloring_method == 'volcano':
         peptide_intensity_vector = pg_utils.volcano_coloring_vectorised(peptide_intensity_vector, treshold=treshold)
 
