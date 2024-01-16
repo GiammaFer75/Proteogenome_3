@@ -85,8 +85,9 @@ def save_json_file(input_file_path, json_object):
     f = open(input_file_path, 'w')
     json.dump(json_object, f)
     f.close()
-def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot_list=[],
-                      species='', strand_code = '', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
+def gen_protein_track(species, quantitation_method, coloring_method, color_gradient,
+                      peptides_input_table, prot_pep_index, prot_CDS_index, prot_list=[],
+                      strand_code = '', bed_fn='test1.bed'): # strand for HCMV NC_006273.2
     """
     Version: 1.0
     Name History: protein_set_bed - protein_track (from Proteogenome 3) - gen_protein_track
@@ -105,8 +106,12 @@ def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot
     """
 
     proteins_not_found = []
-    prot_PSMint_index = pg_i.protein_PSM_int_index(prot_pep_index,
-                                                   peptides_input_table)  # Generates the color code for protein intensities
+    # Generates the color code for protein intensities
+    prot_PSMint_index = pg_i.protein_PSM_int_index(quantitation_method = quantitation_method,
+                                                   coloring_method = coloring_method,
+                                                   color_gradient = color_gradient,
+                                                   prot_pep_index = prot_pep_index,
+                                                   peptides_input_table = peptides_input_table)
 
     if prot_list == []:
         prot_list = prot_pep_index.keys()
@@ -164,16 +169,16 @@ def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot
         # if chromStart > chromEnd: chromStart, chromEnd = chromEnd, chromStart
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # ///////////////////  NEW chr - STAR END  \\\\\\\\\\\\\\\\\\\ #
-        chromStart = min(CDS_block[0][b1:b2])
-        chromEnd = max(CDS_block[-1][b1:b2])
+        chromStart = min(map(int,CDS_block[0][b1:b2]))
+        chromEnd = max(map(int,CDS_block[-1][b1:b2]))
         if chromStart > chromEnd:               # Means that the CDS_block is ordered in descending order
             CDS_block.reverse()                     # Reorder the CDS_block in ascending order
-            chromStart = min(CDS_block[0][b1:b2])   # Redefine the Start and End of the protein
-            chromEnd = max(CDS_block[-1][b1:b2])
+            chromStart = min(map(int,CDS_block[0][b1:b2]))   # Redefine the Start and End of the protein
+            chromEnd = max(map(int,CDS_block[-1][b1:b2]))
 
 # ///////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ #
-        tickStart = chromStart
-        tickEnd = chromEnd
+        tickStart = str(chromStart)
+        tickEnd = str(chromEnd)
         # if strand == '-':
         #     tickStart = chromEnd
         #     tickEnd = chromStart
@@ -201,11 +206,10 @@ def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot
 #                 CDS_end = CDS[end_n]
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 #                     NEW CDS - START END                     #
+            CDS_start = min(map(int, CDS[b1:b2]))
+            CDS_end = max(map(int, CDS[b1:b2]))
 
-            CDS_start = min(CDS[b1:b2])
-            CDS_end = max(CDS[b1:b2])
 #                                                             #
-
             if species == 'virus':
                 blockSizes_str += str(abs(int(CDS_end) - int(CDS_start))) + ','
                 blockStarts_str += str(abs(int(chromStart) - int(CDS_start))) + ','
@@ -226,14 +230,6 @@ def gen_protein_track(peptides_input_table, prot_pep_index, prot_CDS_index, prot
             # if strand == '-': blockSizes_str.reverse()
             blockSizes_str = ','.join(blockSizes_str)
 
-
-
-        if type(CDS_start) == float:        # For the genomes manipulated with pd.DataFrame the coordinates are floats NOT str
-            tickStart = str(int(tickStart))
-            tickEnd = str(int(tickEnd))
-            chromStart = str(int(chromStart))
-            chromEnd = str(int(chromEnd))
-        #
         # print(f"""
         # chr_name        - {type(chr_name)}\n
         # chromStart      - {type(chromStart)}\n
