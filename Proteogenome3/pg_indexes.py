@@ -24,9 +24,10 @@ def initialise_indexes(prot_annots_path, input_table, annot_format='gff_complian
            **********************
            """)
 
-
     prot_pep_index = protein_peptide_index(input_table)
+    print('prot_pep_index - DONE')
     pep_prot_index = peptide_protein_index(input_table)
+    print('pep_prot_index - DONE')
     unique_protein_list = prot_pep_index.keys()
 
     if annot_format == 'not_gtf_compliant':
@@ -145,7 +146,8 @@ def gen_protein_CDS_index(annotations, annot_format=''):
 
     # **************** Parsing annotations in GFF format
     if annot_format == 'not_gtf_compliant':  # specific patterns for the
-        gene_pat = re.compile(r'.*?\sgene\s\"(.*?)\";')          # annotation in GTF format
+        # gene_pat = re.compile(r'.*?\sgene\s\"(.*?)\";')          # annotation in GTF format
+        gene_pat = re.compile(r'.*?\sprotein_id\s\"(.*?)\";')       # annotation in GTF format
         # gene_pat = re.compile(r'.*?;gene=(.*?);')        # annotation in GFF3 format
         # gene_pat = re.compile(r'.*?;protein_id=(.*?);')  # annotation in GFF3 format
         for row in annotations:
@@ -164,7 +166,8 @@ def gen_protein_CDS_index(annotations, annot_format=''):
             print(protein_ID)
             print('-----------------------')
 
-            CDS_feat = [coord_1, coord_2, strand]
+            CDS_feat = [coord_1, coord_2, strand]   ---- O
+            # CDS_feat = [int(coord_1), int(coord_2), strand]
 
             if (protein_ID in prot_CDS_index):
                 # Append the features of the current CDS on the list of CDS that belongs to the current protein.
@@ -183,11 +186,10 @@ def gen_protein_CDS_index(annotations, annot_format=''):
     return prot_CDS_index
 
 
-def protein_PSM_int_index(prot_pep_index, peptides_input_table,
+def protein_PSM_int_index(prot_pep_index, peptides_input_table, color_gradient,
                           quantitation_method = 'log2Fold-1', coloring_method = 'volcano',
-                          color_gradient=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange', 'red']
                           ):
-    # def protein_PSM_int_index(color_gradient=['blue','cyan','lime','yellow']):
+#=['black', 'blue', 'cyan', 'green', 'greenyellow', 'yellow', 'orange', 'red']
 
     """
     Version: 2.0
@@ -212,8 +214,9 @@ def protein_PSM_int_index(prot_pep_index, peptides_input_table,
     min_intensity = np.min(peptides_input_table[:,5])
 
     prot_PSMint_index = {}
-    if 'log2Fold' in quantitation_method:
-        treshold_l2f = float(quantitation_method.split('-')[1])
+    if ('log2Fold' in quantitation_method) or ('pag' in quantitation_method):
+        if ('log2Fold' in quantitation_method):
+            treshold_l2f = float(quantitation_method.split('-')[1]) # Only for log2fold extract the threshold value
         sub_peptides_input_table = peptides_input_table[:, np.r_[0, 5]]
         # sub_peptides_input_table = sub_peptides_input_table[abs(sub_peptides_input_table[:,1]) >= threshold_l2f]
         prot_tup_set = [tuple(row) for row in sub_peptides_input_table]
@@ -224,6 +227,7 @@ def protein_PSM_int_index(prot_pep_index, peptides_input_table,
         prot_abundance = np.vstack([prot_tup_set[:, 0], prot_abun_float]).transpose()
         for protid_abundance in prot_abundance:
             prot_PSMint_index[protid_abundance[0]] = [1, protid_abundance[1]]
+        prot_PSMint_index = pg_utils.dict_numlst_2_dict_strlst(prot_PSMint_index)
 
     elif quantitation_method == 'pas': # Protein Abundance = Peptides Abundance Sum
         for protein, pep_array in prot_pep_index.items():
@@ -237,24 +241,12 @@ def protein_PSM_int_index(prot_pep_index, peptides_input_table,
             if max_intensity < inten_sum: max_intensity = inten_sum
             if min_intensity > inten_sum: min_intensity = inten_sum
 
-
     if coloring_method == 'continuous_color_fade':
         # print('Protein-Peptide Index - Protein-CDS Index')
         # print(f'               {len(prot_pep_index)}     -     {len(prot_CDS_index)}')
 
         RGB_tup = pg_utils.generate_color_gradient(color_lst=color_gradient, reverse_gradient=False)  # 'gray',
-        # ----------------------- #
-        # DRAW THE COLOR GRADIENT #
-        # ----------------------- #
-        # fig, ax = plt.subplots(figsize=(8, 5))
-        # ax.yaxis.set_visible(False)
-        # x_tick_locations=range(0,max_intensity-min_intensity,10)
-        # x_tick_labels=range(min_intensity,max_intensity,1000)
-        # plt.xticks(x_tick_locations, x_tick_labels)
-        # for x, colorRGB in enumerate(RGB_tup):
-        #     ax.axvline(x, color=colorRGB, linewidth=4)
-        # plt.show()
-        # ----------------------- #
+
         print('Color gradient done\n+++++++++++++++++++\n ')
 
         # PRINT THE RGB TUPLES FOR THE COLOR GRADIENT
