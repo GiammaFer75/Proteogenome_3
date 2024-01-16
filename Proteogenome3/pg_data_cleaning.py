@@ -97,7 +97,7 @@ def check_FASTA_format(list_rows):
         chars_found = []
         chars_found = list(set(row).intersection(undesired_chars_set))           # Find undesired chars
         if chars_found:
-            print('Undesired characters fount in the FASTA file.')
+            print('Undesired characters found in the FASTA file.')
             update_unique_char_found =[]
             # Check if the character found are already found before
             update_unique_char_found = set(chars_found) - set(unique_char_found)
