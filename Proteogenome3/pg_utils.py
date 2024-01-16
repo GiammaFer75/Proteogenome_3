@@ -12,9 +12,28 @@ import matplotlib.pyplot as plt
 def roundfloat(x, pn=4):
     return round(x, pn)
 
+def dict_numlst_2_dict_strlst(dict_numlst):
+    """
+    Version : 1.0
+    Name History : dict_numlst_2_dict_strlst
+
+    This function converts a dictionary made by key - list of numbers
+    in a dictionary made by key - list of strings.
+    The function applies the str() at each element of each number in every list.
+
+    :param dict_numlst:
+    :return:
+
+    References: https://stackoverflow.com/questions/12229064/mapping-over-values-in-a-python-dictionary
+    """
+    return dict(map(
+                    lambda k_v: (k_v[0], list(map(str,k_v[1]))),
+                    dict_numlst.items()
+                   )
+               )
 def check_input_json(proteogenome_project_dir, proteogenome_input_json = 'proteogenome_input.json'):
     input_file = pathlib.Path(pathlib.PurePath(proteogenome_project_dir, f'./{proteogenome_input_json}'))
-    print('Looking for - ', input_file)
+    print(f'Looking for - {input_file}')
     return input_file.is_file()
 
 def input_json(project_directory):
@@ -47,6 +66,8 @@ def input_json(project_directory):
         # print(input_json_keys)
         # Fill the field not input by the user
         if not 'species' in input_json_keys: input_json['species'] = None
+        if not 'quantitation_method' in input_json_keys: input_json['quantitation_method'] = None
+        if not 'coloring_method' in input_json_keys: input_json['coloring_method'] = None
         if not 'pogo_windows_exe' in input_json_keys: input_json['pogo_windows_exe'] = None
         if not 'protein_FASTA_seq' in input_json_keys: input_json['protein_FASTA_seq'] = None
         if not 'protein_GFF3_annots' in input_json_keys: input_json['protein_GFF3_annots'] = None
@@ -54,7 +75,8 @@ def input_json(project_directory):
         if not 'peptides_table' in input_json_keys: input_json['peptides_table'] = None
 
         species = input_json['species']
-
+        quantitation_method = input_json['quantitation_method']
+        coloring_method = input_json['coloring_method']
         # Upload the input path
         pogo_windows_exe_path = input_json['pogo_windows_exe']
         protein_FASTA_seq_path = input_json['protein_FASTA_seq']
@@ -65,8 +87,8 @@ def input_json(project_directory):
     print('From JSON - {}\n{}\n{}\n{}\n{}\n' \
           .format(pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, \
           protein_GTF_annots_path, peptides_table_path))
-    return pogo_windows_exe_path, protein_FASTA_seq_path, protein_GFF3_annots_path, protein_GTF_annots_path, \
-           peptides_table_path, species
+    return species, coloring_method, quantitation_method, pogo_windows_exe_path, protein_FASTA_seq_path, \
+           protein_GFF3_annots_path, protein_GTF_annots_path, peptides_table_path
 
 
 def print_lst(input_list, limit=10, en_sep=True, sep_type='-'):
@@ -315,7 +337,7 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
             RGB_vec     [List]  RGB codes in tuples.
     """
     PSM_inten_values = prot_PSMint_index.values()
-    inten_values = [int(x[1]) for x in PSM_inten_values]
+    inten_values = [float(x[1]) for x in PSM_inten_values]
     print('\nExtraction of protein intensities\n', inten_values)
 
     rescaled_values = []  # Intensities are converted to the index for the corresponding color code
@@ -348,7 +370,7 @@ def exprlev_resc_RGB(RGB_scale, prot_PSMint_index):
     new_min = 0
 
     for prot, PSM_intensity in prot_PSMint_index.items():
-        old_value = int(PSM_intensity[1])
+        old_value = float(PSM_intensity[1])
 
         NewValue = int((((old_value - old_min) * (new_max - new_min)) / (old_max - old_min)) + new_min)
         if NewValue == 0: NewValue = 1  # 0 values for the less intense proteins use to assign the higer intensity RGB code
